@@ -1,8 +1,13 @@
 import {
   CollectionReview,
+  ECollectionLogType,
   MediaItem,
   MediaServerType,
   ReviewApprovalResult,
+  ReviewArrOutcome,
+  ReviewDeletionResult,
+  ReviewDeletionStatus,
+  ReviewTitleIdentity,
   ReviewCandidate,
   ReviewWatcher,
 } from '@maintainerr/contracts';
@@ -189,7 +194,7 @@ export class CollectionReviewService {
     row: CollectionMedia,
     bound: ReviewTarget,
     inventory?: MediaItem[],
-  ): Promise<void> {
+  ): Promise<string[]> {
     const items = inventory ?? (await this.inventory(collection));
     const exclusions = await this.exclusions.find();
     const cascade = buildExclusionCascadeSets(
@@ -270,6 +275,7 @@ export class CollectionReviewService {
     const playing = await this.playing();
     if (affectedIds.some((id) => playing.has(id)))
       throw new Error('Affected Plex item is playing');
+    return affectedIds;
   }
 
   private async watchers(
@@ -405,6 +411,28 @@ export class CollectionReviewService {
     return result;
   }
 
+  private async recordDeletion(
+    collection: Collection,
+    outcome: ReviewDeletionResult,
+  ): Promise<boolean> {
+    const message = `Review deletion ${outcome.status}: ${JSON.stringify(outcome)}`;
+    this.logger.log(message);
+    try {
+      await this.collectionService.addLogRecord(
+        collection,
+        message,
+        ECollectionLogType.MEDIA,
+        { type: 'review_deletion', data: outcome },
+      );
+      return true;
+    } catch {
+      this.logger.error(
+        `Could not persist deletion audit; retained in application log: ${JSON.stringify(outcome)}`,
+      );
+      return false;
+    }
+  }
+
   async approve(id: number, ids: string[]): Promise<ReviewApprovalResult> {
     const release = this.executionLock.tryAcquire(
       RULES_COLLECTIONS_EXECUTION_LOCK_KEY,
@@ -435,6 +463,7 @@ export class CollectionReviewService {
       if (ids.some((itemId) => !byId.has(itemId)))
         throw new ConflictException('Collection membership changed');
       const targets = new Map<string, ReviewTarget>();
+      const identities = new Map<string, ReviewTitleIdentity>();
       const canonical = new Set<string>();
       for (const itemId of ids) {
         const row = byId.get(itemId)!;
@@ -446,29 +475,72 @@ export class CollectionReviewService {
             'Selection contains duplicate arr targets',
           );
         canonical.add(key);
-        await this.validateTarget(collection, row, target);
+        const plexIds = await this.validateTarget(collection, row, target);
+        identities.set(itemId, {
+          id: itemId,
+          title: item.title,
+          year: item.year ?? null,
+          sizeBytes: review.candidates.find(
+            (candidate) => candidate.id === itemId,
+          )!.sizeBytes,
+          arrService: target.kind,
+          arrSettingsId: target.settingsId,
+          arrId: target.id,
+          plexIds,
+        });
         targets.set(itemId, target);
       }
-      const result: ReviewApprovalResult = { handledIds: [], failedIds: [] };
+      const result: ReviewApprovalResult = { items: [] };
       const libraryReads = new ArrLookupCache();
       for (const itemId of ids) {
+        const identity = identities.get(itemId)!;
+        const target = targets.get(itemId)!;
+        const state: {
+          arr: ReviewArrOutcome;
+          recorded?: ReviewDeletionStatus;
+          auditFailed: boolean;
+        } = { arr: 'not-deleted', auditFailed: false };
+        const recordOutcome = async (status: ReviewArrOutcome) => {
+          state.arr = status;
+          state.auditFailed = !(await this.recordDeletion(collection, {
+            ...identity,
+            plexIds: [...identity.plexIds],
+            status,
+          }));
+          state.recorded = status;
+        };
+        let cleanupFailed = false;
         try {
-          const target = targets.get(itemId)!;
-          const beforeDelete = () =>
-            this.validateTarget(collection, byId.get(itemId)!, target);
+          const beforeDelete = async () => {
+            identity.plexIds = await this.validateTarget(
+              collection,
+              byId.get(itemId)!,
+              target,
+            );
+          };
           await beforeDelete();
           const outcome = await this.handler.handleMedia(
             collection,
             byId.get(itemId)!,
             libraryReads,
-            { target, beforeDelete },
+            { target, beforeDelete, recordOutcome },
           );
-          (outcome === 'failed' ? result.failedIds : result.handledIds).push(
-            itemId,
-          );
+          cleanupFailed = state.arr === 'deleted' && outcome !== 'handled';
         } catch {
-          result.failedIds.push(itemId);
+          cleanupFailed = state.arr === 'deleted';
         }
+        const status: ReviewDeletionStatus =
+          state.arr === 'deleted' && (cleanupFailed || state.auditFailed)
+            ? 'deleted-with-cleanup-failure'
+            : state.arr;
+        const outcome: ReviewDeletionResult = {
+          ...identity,
+          plexIds: [...identity.plexIds],
+          status,
+        };
+        if (state.recorded !== status)
+          await this.recordDeletion(collection, outcome);
+        result.items.push(outcome);
       }
       return result;
     } finally {

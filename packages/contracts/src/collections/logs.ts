@@ -1,4 +1,5 @@
 import { IComparisonStatistics } from '../rules/rule'
+import type { ReviewDeletionResult } from './review'
 
 export type CollectionLogDto = {
   timestamp: Date
@@ -11,6 +12,7 @@ export type CollectionLogDto = {
         | CollectionLogMetaMediaRemovedByRule
         | CollectionLogMetaMediaAddedManually
         | CollectionLogMetaMediaRemovedManually
+        | CollectionLogMetaReviewDeletion
     }
   | {
       type: ECollectionLogType.COLLECTION
@@ -42,6 +44,7 @@ export type CollectionLogMeta =
   | CollectionLogMetaMediaRemovedByRule
   | CollectionLogMetaMediaAddedManually
   | CollectionLogMetaMediaRemovedManually
+  | CollectionLogMetaReviewDeletion
 
 export type CollectionLogMetaMediaAddedByRule = {
   type: 'media_added_by_rule'
@@ -59,4 +62,9 @@ export type CollectionLogMetaMediaAddedManually = {
 
 export type CollectionLogMetaMediaRemovedManually = {
   type: 'media_removed_manually'
+}
+
+export type CollectionLogMetaReviewDeletion = {
+  type: 'review_deletion'
+  data: ReviewDeletionResult
 }

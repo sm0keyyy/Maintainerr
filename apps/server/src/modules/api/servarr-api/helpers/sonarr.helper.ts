@@ -1,4 +1,4 @@
-import { MediaItem } from '@maintainerr/contracts';
+import { MediaItem, ReviewArrOutcome } from '@maintainerr/contracts';
 import { assertApiKey, connectionTestConfig } from '../../lib/connectionTest';
 import { MaintainerrLogger } from '../../../logging/logs.service';
 import { SLOW_INSTANCE_TIMEOUT_MS } from '../../lib/httpTimeouts';
@@ -389,6 +389,12 @@ export class SonarrApi extends ServarrApi<{
       this.logger.debug(error);
       return false;
     }
+  }
+
+  public deleteShowForReview(seriesId: number): Promise<ReviewArrOutcome> {
+    return this.runReviewDelete(
+      `series/${seriesId}?deleteFiles=true&addImportListExclusion=true`,
+    );
   }
 
   public async UnmonitorDeleteEpisodes(

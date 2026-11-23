@@ -1240,6 +1240,14 @@ msgid "Delete this show"
 msgstr "Delete this show"
 
 #: src/pages/CollectionReviewPage.tsx
+msgid "Deleted"
+msgstr "Deleted"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Deleted; cleanup failed"
+msgstr "Deleted; cleanup failed"
+
+#: src/pages/CollectionReviewPage.tsx
 msgid "Deletion failed. Reload the review before trying again."
 msgstr "Deletion failed. Reload the review before trying again."
 
@@ -1969,10 +1977,6 @@ msgstr "Handled by rule: ''{ruleName}''"
 #: src/components/Collection/CollectionDetail/CollectionInfo/index.tsx
 msgid "Handled media items"
 msgstr "Handled media items"
-
-#: src/pages/CollectionReviewPage.tsx
-msgid "Handled titles: {handledCount}. Failed titles: {failedCount}. Failed titles were not reported as deleted."
-msgstr "Handled titles: {handledCount}. Failed titles: {failedCount}. Failed titles were not reported as deleted."
 
 #: src/components/Rules/RuleGroup/AddModal/index.tsx
 msgid "Help"
@@ -2817,6 +2821,10 @@ msgstr "Not Contains (Exact list match)"
 msgid "Not Contains (Partial list match)"
 msgstr "Not Contains (Partial list match)"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Not deleted"
+msgstr "Not deleted"
+
 #: src/components/Rules/Rule/RuleCreator/RuleInput/index.tsx
 msgid "Not Equals"
 msgstr "Not Equals"
@@ -2936,6 +2944,10 @@ msgstr "Options"
 #: src/components/VersionStatus/index.tsx
 msgid "Out of Date"
 msgstr "Out of Date"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Outcome uncertain; reload and review before trying again"
+msgstr "Outcome uncertain; reload and review before trying again"
 
 #: src/components/Collection/CollectionDetail/CollectionInfo/index.tsx
 #: src/components/Collection/CollectionDetail/TestMediaItem/index.tsx

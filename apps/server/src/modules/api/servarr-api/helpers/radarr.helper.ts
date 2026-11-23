@@ -1,3 +1,4 @@
+import { ReviewArrOutcome } from '@maintainerr/contracts';
 import { isAxiosError } from 'axios';
 import { assertApiKey, connectionTestConfig } from '../../lib/connectionTest';
 import { MaintainerrLogger } from '../../../logging/logs.service';
@@ -172,6 +173,12 @@ export class RadarrApi extends ServarrApi<{ movieId: number }> {
       this.logger.debug(error);
       return false;
     }
+  }
+
+  public deleteMovieForReview(movieId: number): Promise<ReviewArrOutcome> {
+    return this.runReviewDelete(
+      `movie/${movieId}?deleteFiles=true&addImportExclusion=true`,
+    );
   }
 
   /**

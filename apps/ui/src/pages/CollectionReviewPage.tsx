@@ -1,4 +1,8 @@
 import { Trans, useLingui } from '@lingui/react/macro'
+import type {
+  ReviewApprovalResult,
+  ReviewDeletionStatus,
+} from '@maintainerr/contracts'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
@@ -21,7 +25,7 @@ const CollectionReviewPage = ({ id }: { id: string }) => {
   const queryClient = useQueryClient()
   const { data, isPending, error, refetch } = useCollectionReview(id)
   const [selected, setSelected] = useState<Set<string>>(() => new Set())
-  const [outcome, setOutcome] = useState<{ handled: number; failed: number }>()
+  const [outcome, setOutcome] = useState<ReviewApprovalResult>()
   const enable = useMutation({
     mutationFn: () => enableCollectionReview(id),
     onSuccess: () => invalidateCollectionQueries(queryClient),
@@ -29,11 +33,21 @@ const CollectionReviewPage = ({ id }: { id: string }) => {
   const chosen = data?.candidates.filter((item) => selected.has(item.id)) ?? []
   const count = chosen.length
   const size = formatSize(chosen.reduce((sum, item) => sum + item.sizeBytes, 0))
-  const handledCount = outcome?.handled ?? 0
-  const failedCount = outcome?.failed ?? 0
   const unavailableCount = data?.unavailableIds.length ?? 0
   const date = (value: string | null) =>
     value ? new Date(value).toLocaleDateString(i18n.locale) : t`Never watched`
+  const outcomeLabel = (status: ReviewDeletionStatus) => {
+    switch (status) {
+      case 'deleted':
+        return t`Deleted`
+      case 'deleted-with-cleanup-failure':
+        return t`Deleted; cleanup failed`
+      case 'not-deleted':
+        return t`Not deleted`
+      case 'uncertain':
+        return t`Outcome uncertain; reload and review before trying again`
+    }
+  }
 
   if (isPending)
     return (
@@ -120,10 +134,7 @@ const CollectionReviewPage = ({ id }: { id: string }) => {
                   chosen.map((item) => item.id),
                 )
                 setSelected(new Set())
-                setOutcome({
-                  handled: result.handledIds.length,
-                  failed: result.failedIds.length,
-                })
+                setOutcome(result)
                 await invalidateCollectionQueries(queryClient)
               }}
             >
@@ -155,15 +166,20 @@ const CollectionReviewPage = ({ id }: { id: string }) => {
             </p>
           ) : null}
           {outcome ? (
-            <p
-              role={outcome.failed ? 'alert' : 'status'}
+            <ul
+              role={
+                outcome.items.some((item) => item.status !== 'deleted')
+                  ? 'alert'
+                  : 'status'
+              }
               className="mb-4 text-zinc-200"
             >
-              <Trans>
-                Handled titles: {handledCount}. Failed titles: {failedCount}.
-                Failed titles were not reported as deleted.
-              </Trans>
-            </p>
+              {outcome.items.map((item) => (
+                <li key={item.id}>
+                  {item.title}: {outcomeLabel(item.status)}
+                </li>
+              ))}
+            </ul>
           ) : null}
           {data.unavailableIds.length ? (
             <p role="alert" className="mb-4 text-amber-300">

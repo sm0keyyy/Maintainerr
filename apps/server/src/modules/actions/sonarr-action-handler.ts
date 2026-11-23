@@ -78,14 +78,10 @@ export class SonarrActionHandler {
         target.settingsId !== collection.sonarrSettingsId
       )
         return false;
-      const downloadIds = this.settings.downloadClientConfigured()
-        ? await sonarrApiClient.getDownloadIdsForSeries(target.id)
-        : [];
       await approval.beforeDelete();
-      if (!(await sonarrApiClient.deleteShow(target.id, true, true)))
-        return false;
-      await this.downloadClient.removeDownloads(downloadIds);
-      return true;
+      const outcome = await sonarrApiClient.deleteShowForReview(target.id);
+      await approval.recordOutcome(outcome);
+      return outcome === 'deleted';
     }
 
     let mediaData: MediaItem | undefined = undefined;

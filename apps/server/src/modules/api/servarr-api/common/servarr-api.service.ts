@@ -1,4 +1,9 @@
-import { normalizeDiskPath, QualityProfile } from '@maintainerr/contracts';
+import {
+  normalizeDiskPath,
+  QualityProfile,
+  ReviewArrOutcome,
+} from '@maintainerr/contracts';
+import { isAxiosError } from 'axios';
 import { ExternalApiService } from '../../../../modules/api/external-api/external-api.service';
 import { DVRSettings } from '../../../../modules/settings/interfaces/dvr-settings.interface';
 import { MaintainerrLogger } from '../../../logging/logs.service';
@@ -323,6 +328,34 @@ export abstract class ServarrApi<QueueItemAppendT> extends ExternalApiService {
     } catch (error) {
       this.logger.warn('Failed to run command');
       this.logger.debug(error);
+    }
+  }
+
+  protected async runReviewDelete(command: string): Promise<ReviewArrOutcome> {
+    try {
+      await this.delete(
+        `/${command}`,
+        {
+          timeout: NO_TIMEOUT,
+          httpRetry: { retries: 0 },
+        },
+        { rethrow: true },
+      );
+      return 'deleted';
+    } catch (error) {
+      const status = isAxiosError(error) ? error.response?.status : undefined;
+      const outcome =
+        status != null &&
+        status >= 400 &&
+        status < 500 &&
+        status !== 408 &&
+        status !== 429
+          ? 'not-deleted'
+          : 'uncertain';
+      this.logger.warn(
+        `Review DELETE outcome ${outcome}: /${command}; request was not retried`,
+      );
+      return outcome;
     }
   }
 

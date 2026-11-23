@@ -359,10 +359,17 @@ API (no authentication; restrict access to trusted hosts):
   selection. Every current Plex movie/show mapping to the target is checked,
   including copies outside this collection. Fresh watch, age and strict active
   session checks run again immediately before each arr deletion; a newly
-  protected target is skipped. Maximum 500 distinct ids. Returns `handledIds`
-  and `failedIds`; partial failures are not successes.
+  protected target is skipped. Maximum 500 distinct ids. Response `items` include
+  captured title/year/size, arr identity, affected Plex ids and one status:
+  `deleted`, `deleted-with-cleanup-failure`, `not-deleted`, or `uncertain`.
   Inventory discovery finishes before final age/watch/session checks. Candidate
   listing uses the same affected-copy watch protection as approval.
+  Approved DELETE requests have transport retries disabled. A network error,
+  HTTP 5xx or 429 leaves an uncertain outcome; only a new approval can attempt
+  deletion again, after full eligibility validation. The arr outcome is recorded
+  immediately after the request, before collection/request cleanup. A later
+  cleanup failure adds a separate audit entry without erasing confirmed deletion.
+  Review deletion never removes download-client torrents or their data.
 - `POST /api/collections/:id/review/notify`: prepare and notify a review now.
 
 Keep the port Tailscale-only. The UI confirmation is not authentication.

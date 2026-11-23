@@ -52,14 +52,10 @@ export class RadarrActionHandler {
         target.settingsId !== collection.radarrSettingsId
       )
         return false;
-      const downloadIds = this.settings.downloadClientConfigured()
-        ? await radarrApiClient.getDownloadIdsForMovie(target.id)
-        : [];
       await approval.beforeDelete();
-      if (!(await radarrApiClient.deleteMovie(target.id, true, true)))
-        return false;
-      await this.downloadClient.removeDownloads(downloadIds);
-      return true;
+      const outcome = await radarrApiClient.deleteMovieForReview(target.id);
+      await approval.recordOutcome(outcome);
+      return outcome === 'deleted';
     }
 
     const lookupCandidates =

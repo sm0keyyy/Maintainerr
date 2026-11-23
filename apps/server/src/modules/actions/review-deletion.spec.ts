@@ -11,10 +11,11 @@ import { SettingsDataService } from '../settings/settings-data.service';
 import { RadarrActionHandler } from './radarr-action-handler';
 import { SonarrActionHandler } from './sonarr-action-handler';
 import { ReviewDeletion } from './review-deletion';
+import { DownloadClientApiService } from '../api/download-client-api/download-client-api.service';
 
 for (const kind of ['radarr', 'sonarr'] as const) {
   describe(`${kind} bound review deletion`, () => {
-    it('uses only the approved canonical id and checks eligibility after preparatory awaits', async () => {
+    it('checks eligibility before bound deletion and never touches download-client data', async () => {
       const { unit, unitRef } =
         kind === 'radarr'
           ? await TestBed.solitary(RadarrActionHandler).compile()
@@ -30,17 +31,13 @@ for (const kind of ['radarr', 'sonarr'] as const) {
         sportarrSettingsId: null,
       });
       const media = createCollectionMedia(collection);
-      let protectedNow = false;
-      const prepare = jest.fn(async () => {
-        protectedNow = true;
-        return [];
-      });
-      const remove = jest.fn().mockResolvedValue(true);
+      const prepare = jest.fn().mockResolvedValue([]);
+      const remove = jest.fn().mockResolvedValue('deleted');
       const api = {
         getDownloadIdsForMovie: prepare,
         getDownloadIdsForSeries: prepare,
-        deleteMovie: remove,
-        deleteShow: remove,
+        deleteMovieForReview: remove,
+        deleteShowForReview: remove,
       };
       const servarr = unitRef.get(ServarrService);
       servarr.getRadarrApiClient.mockResolvedValue(
@@ -66,9 +63,10 @@ for (const kind of ['radarr', 'sonarr'] as const) {
           path: '/media/title',
           addedAt: '2020-01-01',
         },
-        beforeDelete: jest.fn(async () => {
-          if (protectedNow) throw new Error('Watched during preparation');
-        }),
+        beforeDelete: jest
+          .fn()
+          .mockRejectedValue(new Error('Watched during preparation')),
+        recordOutcome: jest.fn().mockResolvedValue(undefined),
       };
       await expect(
         unit.handleAction(collection, media, undefined, approval),
@@ -81,7 +79,12 @@ for (const kind of ['radarr', 'sonarr'] as const) {
       await expect(
         unit.handleAction(collection, media, undefined, approval),
       ).resolves.toBe(true);
-      expect(remove).toHaveBeenCalledWith(42, true, true);
+      expect(remove).toHaveBeenCalledWith(42);
+      expect(approval.recordOutcome).toHaveBeenCalledWith('deleted');
+      expect(prepare).not.toHaveBeenCalled();
+      expect(
+        unitRef.get(DownloadClientApiService).removeDownloads,
+      ).not.toHaveBeenCalled();
     });
   });
 }

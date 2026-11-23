@@ -1238,6 +1238,14 @@ msgid "Delete this show"
 msgstr "刪除此影集"
 
 #: src/pages/CollectionReviewPage.tsx
+msgid "Deleted"
+msgstr ""
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Deleted; cleanup failed"
+msgstr ""
+
+#: src/pages/CollectionReviewPage.tsx
 msgid "Deletion failed. Reload the review before trying again."
 msgstr ""
 
@@ -1967,10 +1975,6 @@ msgstr "由規則：''{ruleName}'' 處理"
 #: src/components/Collection/CollectionDetail/CollectionInfo/index.tsx
 msgid "Handled media items"
 msgstr "已處理的媒體項目"
-
-#: src/pages/CollectionReviewPage.tsx
-msgid "Handled titles: {handledCount}. Failed titles: {failedCount}. Failed titles were not reported as deleted."
-msgstr ""
 
 #: src/components/Rules/RuleGroup/AddModal/index.tsx
 msgid "Help"
@@ -2815,6 +2819,10 @@ msgstr "不包含（清單完全相符）"
 msgid "Not Contains (Partial list match)"
 msgstr "不包含（清單部分相符）"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Not deleted"
+msgstr ""
+
 #: src/components/Rules/Rule/RuleCreator/RuleInput/index.tsx
 msgid "Not Equals"
 msgstr "不等於"
@@ -2934,6 +2942,10 @@ msgstr "選項"
 #: src/components/VersionStatus/index.tsx
 msgid "Out of Date"
 msgstr "版本過舊"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Outcome uncertain; reload and review before trying again"
+msgstr ""
 
 #: src/components/Collection/CollectionDetail/CollectionInfo/index.tsx
 #: src/components/Collection/CollectionDetail/TestMediaItem/index.tsx

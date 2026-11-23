@@ -37,7 +37,26 @@ export interface CollectionReview {
   unavailableIds: string[]
 }
 
+export type ReviewArrOutcome = 'deleted' | 'not-deleted' | 'uncertain'
+
+export type ReviewDeletionStatus =
+  ReviewArrOutcome | 'deleted-with-cleanup-failure'
+
+export interface ReviewTitleIdentity {
+  id: string
+  title: string
+  year: number | null
+  sizeBytes: number
+  arrService: 'radarr' | 'sonarr'
+  arrSettingsId: number
+  arrId: number
+  plexIds: string[]
+}
+
+export interface ReviewDeletionResult extends ReviewTitleIdentity {
+  status: ReviewDeletionStatus
+}
+
 export interface ReviewApprovalResult {
-  handledIds: string[]
-  failedIds: string[]
+  items: ReviewDeletionResult[]
 }

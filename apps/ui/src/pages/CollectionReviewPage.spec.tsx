@@ -36,8 +36,10 @@ describe('Collection review selection', () => {
       unavailableIds: [],
     })
     vi.mocked(PostApiHandler).mockResolvedValue({
-      handledIds: ['2', '4'],
-      failedIds: [],
+      items: [
+        { id: '2', title: 'Movie 2', status: 'deleted' },
+        { id: '4', title: 'Movie 4', status: 'deleted' },
+      ],
     })
   })
   it('starts empty and requires a count and size confirmation before acting on exactly the ticked titles', async () => {
@@ -117,6 +119,41 @@ describe('Collection review selection', () => {
       ).disabled,
     ).toBe(true)
     expect(PostApiHandler).not.toHaveBeenCalled()
+    client.clear()
+  })
+  it('distinguishes deleted, cleanup failure, not deleted and uncertain outcomes', async () => {
+    vi.mocked(PostApiHandler).mockResolvedValue({
+      items: [
+        { id: '5', title: 'Movie 5', status: 'deleted' },
+        { id: '4', title: 'Movie 4', status: 'deleted-with-cleanup-failure' },
+        { id: '3', title: 'Movie 3', status: 'not-deleted' },
+        { id: '2', title: 'Movie 2', status: 'uncertain' },
+      ],
+    })
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    render(
+      <QueryClientProvider client={client}>
+        <CollectionReviewPage />
+      </QueryClientProvider>,
+    )
+    await screen.findAllByRole('checkbox')
+    for (const id of [2, 3, 4, 5]) {
+      fireEvent.click(
+        screen.getByRole('checkbox', { name: `Delete Movie ${id}` }),
+      )
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Delete selected' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete' }))
+    expect(await screen.findByText('Movie 5: Deleted')).toBeTruthy()
+    expect(screen.getByText('Movie 4: Deleted; cleanup failed')).toBeTruthy()
+    expect(screen.getByText('Movie 3: Not deleted')).toBeTruthy()
+    expect(
+      screen.getByText(
+        'Movie 2: Outcome uncertain; reload and review before trying again',
+      ),
+    ).toBeTruthy()
     client.clear()
   })
 })

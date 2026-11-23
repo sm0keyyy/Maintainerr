@@ -167,6 +167,7 @@ export class CollectionHandler {
       }
     }
 
+    if (!actionHandled && reviewApproved) return 'failed';
     if (!actionHandled) {
       // The action didn't run. Before treating this as a retryable failure,
       // check whether the item still exists: if it's already gone from the
@@ -262,6 +263,7 @@ export class CollectionHandler {
           media.mediaServerId,
         ]);
       } catch (error) {
+        if (reviewApproved) throw error;
         this.logger.debug(error);
       }
     }
@@ -290,11 +292,13 @@ export class CollectionHandler {
         Number(collection.handledMediaSizeBytes ?? 0) + resolvedSizeBytes;
     }
 
-    await this.collectionService.CollectionLogRecordForChild(
-      media.mediaServerId,
-      collection.id,
-      'handle',
-    );
+    if (!reviewApproved) {
+      await this.collectionService.CollectionLogRecordForChild(
+        media.mediaServerId,
+        collection.id,
+        'handle',
+      );
+    }
 
     // Remember this so the rule executor's next pass doesn't re-add the
     // same item (and fire a `Media Added` notification) before any rule
@@ -312,6 +316,7 @@ export class CollectionHandler {
           `Could not ask the media server to rescan '${folder}' after removing media ${media.mediaServerId}; it may keep listing the item until its next library scan`,
         );
         this.logger.debug(error);
+        if (reviewApproved) throw error;
       }
     }
 

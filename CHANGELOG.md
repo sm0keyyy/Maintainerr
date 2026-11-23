@@ -10,6 +10,11 @@
   exclusions are configured.
 - Finish inventory discovery before the final target-age and stored-watch reads;
   apply the same affected-copy protection to candidate listings.
+- Send approved deletions once, without transport retries; expose uncertain
+  outcomes instead of blindly repeating the destructive request.
+- Capture title/year/size and arr/Plex identities before deletion. Audit the arr
+  result before cleanup and distinguish post-delete cleanup failures.
+- Leave download-client torrents and data untouched during review deletion.
 - Add Plex rule property 55, `lastViewedAtByAnyUser`, backed by read-only per-user
   stored watch state as well as session history and the owner metadata date.
 - Add quarterly review-ready notifications and ntfy click-through URLs.
