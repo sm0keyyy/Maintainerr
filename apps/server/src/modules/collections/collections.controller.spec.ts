@@ -24,6 +24,7 @@ import {
   InvalidCollectionPosterError,
 } from './collection-poster.service';
 import { CollectionsService } from './collections.service';
+import { CollectionReviewService } from './collection-review.service';
 
 describe('CollectionsController', () => {
   let controller: CollectionsController;
@@ -64,6 +65,8 @@ describe('CollectionsController', () => {
     setContext: jest.fn(),
   } as unknown as jest.Mocked<MaintainerrLogger>;
 
+  const reviewService = {} as CollectionReviewService; // Existing controller tests do not enter review routes.
+
   beforeEach(() => {
     jest.clearAllMocks();
     controller = new CollectionsController(
@@ -73,6 +76,7 @@ describe('CollectionsController', () => {
       collectionHandler,
       collectionPosterService,
       logger,
+      reviewService,
     );
 
     collectionWorkerService.isRunning.mockReturnValue(false);
@@ -305,6 +309,23 @@ describe('CollectionsController', () => {
       { type: 'body', metatype: Object, data: '' },
     );
     expect(Number(movieAction.context.id)).toBe(12345);
+  });
+
+  it('cannot bypass a review enabled between the initial read and acquiring the action lock', async () => {
+    const collection = createCollection();
+    const media = createCollectionMedia(collection);
+    collectionsService.getCollectionRecord
+      .mockResolvedValueOnce(collection)
+      .mockResolvedValueOnce({ ...collection, reviewRequired: true });
+    collectionsService.getCollectionMediaRecord.mockResolvedValue(media);
+    collectionHandler.handleMedia.mockResolvedValue('handled');
+    await expect(
+      controller.handleCollectionMedia({
+        collectionId: collection.id,
+        mediaId: media.mediaServerId,
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(collectionHandler.handleMedia).not.toHaveBeenCalled();
   });
 
   it('handles a collection item with the configured collection action', async () => {

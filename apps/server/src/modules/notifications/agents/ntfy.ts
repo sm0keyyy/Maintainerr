@@ -93,6 +93,11 @@ class NtfyAgent implements NotificationAgent {
         Title: notificationPayload.title,
         'Content-Type': 'text/plain; charset=utf-8',
       };
+      if (payload.clickUrl) {
+        const click = validateWebhookUrl(payload.clickUrl);
+        if (!click.ok) return `Failure: ${click.reason}`;
+        headers.Click = click.url;
+      }
 
       if (settings.options.token) {
         headers.Authorization = `Bearer ${settings.options.token}`;

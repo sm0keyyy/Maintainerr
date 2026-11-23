@@ -420,6 +420,10 @@ msgstr "Ajouter à la collection"
 msgid "Add/Exclude <0>selected</0>"
 msgstr "Ajouter/Exclure <0>la sélection</0>"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Added"
+msgstr ""
+
 #: src/components/Calendar/index.tsx
 msgid "Added On"
 msgstr "Ajouté le"
@@ -540,6 +544,10 @@ msgstr "Clé API non configurée."
 msgid "Apply date overlays to posters in this collection"
 msgstr "Appliquer des superpositions de dates aux affiches de cette collection"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Applying collection action..."
+msgstr ""
+
 #: src/components/Rules/RuleGroup/index.tsx
 #: src/components/Settings/ServiceCard.tsx
 msgid "Are you sure?"
@@ -646,6 +654,10 @@ msgstr "Voici les résultats d'évaluation des règles qui ont déclenché cette
 #: src/components/Rules/Rule/RuleCreator/RuleInput/index.tsx
 msgid "Bigger"
 msgstr "Plus grand"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Biggest first. Nothing is selected automatically. Titles watched by anyone or added in the last 365 days are protected."
+msgstr ""
 
 #: src/components/OverlayEditor/PropertiesPanel.tsx
 msgid "bold"
@@ -885,6 +897,14 @@ msgstr "Configurez la connexion à votre serveur Emby. Saisissez l'URL du serveu
 msgid "Configured"
 msgstr ""
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Confirm collection action"
+msgstr ""
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Confirm delete"
+msgstr ""
+
 #: src/components/Common/MediaActionModal.tsx
 msgid "Confirm Global Exclusion"
 msgstr "Confirmer l'exclusion globale"
@@ -965,6 +985,10 @@ msgstr "Impossible de sauvegarder la base de données"
 #: src/components/Rules/RuleGroup/AddModal/CollectionPosterPicker.tsx
 msgid "Could not clear the stored poster"
 msgstr "Impossible d'effacer l'affiche enregistrée"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Could not enable review mode. Try again after the current rule or collection run."
+msgstr ""
 
 #: src/components/Common/LibrarySwitcher/index.tsx
 msgid "Could not fetch libraries"
@@ -1143,6 +1167,10 @@ msgstr "Modèle de carte de titre par défaut"
 msgid "Delete"
 msgstr "Supprimer"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Delete {title}"
+msgstr ""
+
 #: src/components/Settings/DownloadClient/index.tsx
 msgid "Delete downloaded data"
 msgstr "Supprimer les données téléchargées"
@@ -1166,6 +1194,10 @@ msgstr "Supprimer le fichier d'événement"
 #: src/components/Common/MediaLibrarySortControl.tsx
 msgid "Delete Latest"
 msgstr "Suppression la plus tardive"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Delete selected"
+msgstr ""
 
 #: src/components/Common/MediaLibrarySortControl.tsx
 msgid "Delete Soonest"
@@ -1202,6 +1234,10 @@ msgstr "Supprimer cette saison et la série si elle devient vide"
 #: src/components/Collection/CollectionDetail/TriggerRuleActionButton/index.tsx
 msgid "Delete this show"
 msgstr "Supprimer cette série"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Deletion failed. Reload the review before trying again."
+msgstr ""
 
 #: src/components/Collection/CollectionDetail/CollectionInfo/index.tsx
 msgid "Descending"
@@ -1413,6 +1449,14 @@ msgstr "Activer les superpositions et enregistrer pour exécuter manuellement"
 #: src/components/Overlays/index.tsx
 msgid "Enable overlays in Settings to manage templates."
 msgstr "Activez les superpositions dans les Paramètres pour gérer les modèles."
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Enable review mode"
+msgstr ""
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Enable review to stop this collection from taking any scheduled action. Only titles you select and confirm here can be acted on."
+msgstr ""
 
 #: src/components/Settings/Notifications/NotificationAgentCard.tsx
 msgid "Enabled"
@@ -1922,6 +1966,10 @@ msgstr "Traité par la règle : « {ruleName} »"
 msgid "Handled media items"
 msgstr "Éléments multimédias traités"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Handled titles: {handledCount}. Failed titles: {failedCount}. Failed titles were not reported as deleted."
+msgstr ""
+
 #: src/components/Rules/RuleGroup/AddModal/index.tsx
 msgid "Help"
 msgstr "Aide"
@@ -2131,6 +2179,7 @@ msgid "Last duration"
 msgstr "Dernière durée"
 
 #: src/components/Common/MediaCard/MediaModal/WatchStatsPanel/index.tsx
+#: src/pages/CollectionReviewPage.tsx
 msgid "Last watched"
 msgstr "Dernier visionnage"
 
@@ -2236,6 +2285,10 @@ msgstr "Chargement d'éléments supplémentaires"
 msgid "Loading profiles..."
 msgstr "Chargement des profils..."
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Loading review..."
+msgstr ""
+
 #: src/components/Calendar/index.tsx
 msgid "Loading scheduled items..."
 msgstr "Chargement des éléments planifiés..."
@@ -2313,6 +2366,10 @@ msgstr "Journaux - Maintainerr"
 #: src/components/Settings/About/index.tsx
 msgid "Loving Maintainerr?"
 msgstr "Vous aimez Maintainerr ?"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Low rating (<6.0)"
+msgstr ""
 
 #: src/components/Common/CommunityRuleModal/index.tsx
 msgid "Made with Version"
@@ -2564,6 +2621,10 @@ msgstr "Jamais"
 msgid "Never use TLS"
 msgstr ""
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Never watched"
+msgstr ""
+
 #: src/pages/RulesListPage.tsx
 msgid "New Rule"
 msgstr "Nouvelle règle"
@@ -2644,6 +2705,10 @@ msgstr "Aucun chemin de disque avec espace total signalé par ARR"
 msgid "No elements yet"
 msgstr "Pas encore d'éléments"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "No eligible titles to review."
+msgstr ""
+
 #: src/components/Collection/CollectionDetail/CollectionInfo/index.tsx
 msgid "No filter"
 msgstr "Aucun filtre"
@@ -2686,6 +2751,10 @@ msgstr "Aucun agent de notification configuré."
 
 #: src/components/StorageMetrics/index.tsx
 msgid "No Radarr or Sonarr instances are configured yet. Add one in Services to see disk usage here."
+msgstr ""
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "No recorded viewers"
 msgstr ""
 
 #: src/components/Common/SearchMediaITem/index.tsx
@@ -3283,6 +3352,22 @@ msgstr "Restaurer le visuel original pour toutes les collections ?"
 msgid "Retrieving servers..."
 msgstr "Récupération des serveurs..."
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Retry"
+msgstr ""
+
+#: src/pages/CollectionDetailPage.tsx
+msgid "Review"
+msgstr ""
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Review before deletion"
+msgstr ""
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Review could not be loaded. Nothing was acted on."
+msgstr ""
+
 #: src/components/OverlayEditor/PropertiesPanel.tsx
 msgid "right"
 msgstr "droite"
@@ -3527,6 +3612,10 @@ msgstr "Sélectionnez un élément pour modifier ses propriétés"
 msgid "Select an option"
 msgstr "Sélectionner une option"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Select at most 500 titles per approval."
+msgstr ""
+
 #: src/components/Rules/Rule/RuleCreator/RuleInput/index.tsx
 msgid "Select First Value..."
 msgstr "Sélectionner la première valeur..."
@@ -3567,6 +3656,14 @@ msgstr "Vous avez sélectionné {serverName} comme serveur multimédia"
 #: src/components/Settings/Tabs/index.tsx
 msgid "Selected Tab"
 msgstr "Onglet sélectionné"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Selected titles: {count}, total size: {size}"
+msgstr ""
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Selected titles: {count}, total size: {size}. Run the configured collection action? Deleted files cannot be recovered."
+msgstr ""
 
 #: src/components/Settings/Emby/index.tsx
 #: src/components/Settings/Jellyfin/index.tsx
@@ -3722,6 +3819,7 @@ msgstr "Connexion en cours…"
 #: src/components/OverlayEditor/PropertiesPanel.tsx
 #: src/components/Settings/Logs/index.tsx
 #: src/components/StorageMetrics/index.tsx
+#: src/pages/CollectionReviewPage.tsx
 msgid "Size"
 msgstr "Taille"
 
@@ -4162,6 +4260,10 @@ msgstr "Une erreur s'est produite lors de la mise à jour de l'authentification 
 msgid "They are removed from every collection they are currently in as well."
 msgstr "Ils sont également retirés de toutes les collections dans lesquelles ils se trouvent actuellement."
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "This collection is configured to Do nothing. Approval is disabled until you configure its deletion action."
+msgstr ""
+
 #: src/components/Settings/Telemetry/index.tsx
 msgid "This is the exact report your server would send, stored only as anonymous counters."
 msgstr "Voici exactement le rapport que votre serveur enverrait, stocké uniquement sous forme de compteurs anonymes."
@@ -4326,6 +4428,7 @@ msgid "Unexpected error"
 msgstr "Erreur inattendue"
 
 #: src/components/Calendar/index.tsx
+#: src/pages/CollectionReviewPage.tsx
 msgid "Unknown"
 msgstr "Inconnu"
 
@@ -4465,6 +4568,10 @@ msgstr "Ne plus surveiller/Conserver"
 #: src/api/calendar.ts
 msgid "Unmonitor/Keep + Unmonitor Empty Show"
 msgstr "Ne plus surveiller/Conserver + Ne plus surveiller la série vide"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Unverified titles: {unavailableCount}. These titles are not selectable. Check Plex watch-state access and arr connections."
+msgstr ""
 
 #: src/components/OverlayEditor/ResourceField.tsx
 #: src/components/Rules/Rule/RuleCreator/CommunityRuleUpload/index.tsx
@@ -4613,6 +4720,10 @@ msgstr ""
 #: src/components/Common/MediaCard/MediaModal/WatchStatsPanel/index.tsx
 msgid "Watch time"
 msgstr "Temps de visionnage"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Watched by"
+msgstr ""
 
 #: src/components/Layout/TelemetryConsentModal.tsx
 msgid "We build Maintainerr in our spare time, and leaving this on is a free way to help shape what comes next."

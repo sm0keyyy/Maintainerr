@@ -420,6 +420,10 @@ msgstr "Добавить в коллекцию"
 msgid "Add/Exclude <0>selected</0>"
 msgstr "Добавить/исключить <0>выбранное</0>"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Added"
+msgstr ""
+
 #: src/components/Calendar/index.tsx
 msgid "Added On"
 msgstr "Добавлено"
@@ -540,6 +544,10 @@ msgstr "API-ключ не настроен."
 msgid "Apply date overlays to posters in this collection"
 msgstr "Применять оверлеи с датой к постерам этой коллекции"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Applying collection action..."
+msgstr ""
+
 #: src/components/Rules/RuleGroup/index.tsx
 #: src/components/Settings/ServiceCard.tsx
 msgid "Are you sure?"
@@ -646,6 +654,10 @@ msgstr "Ниже приведены результаты оценки прави
 #: src/components/Rules/Rule/RuleCreator/RuleInput/index.tsx
 msgid "Bigger"
 msgstr "Крупнее"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Biggest first. Nothing is selected automatically. Titles watched by anyone or added in the last 365 days are protected."
+msgstr ""
 
 #: src/components/OverlayEditor/PropertiesPanel.tsx
 msgid "bold"
@@ -885,6 +897,14 @@ msgstr "Настройте подключение к серверу Emby. Вве
 msgid "Configured"
 msgstr "Настроено"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Confirm collection action"
+msgstr ""
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Confirm delete"
+msgstr ""
+
 #: src/components/Common/MediaActionModal.tsx
 msgid "Confirm Global Exclusion"
 msgstr "Подтвердить глобальное исключение"
@@ -965,6 +985,10 @@ msgstr "Не удалось создать резервную копию баз�
 #: src/components/Rules/RuleGroup/AddModal/CollectionPosterPicker.tsx
 msgid "Could not clear the stored poster"
 msgstr "Не удалось очистить сохранённый постер"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Could not enable review mode. Try again after the current rule or collection run."
+msgstr ""
 
 #: src/components/Common/LibrarySwitcher/index.tsx
 msgid "Could not fetch libraries"
@@ -1143,6 +1167,10 @@ msgstr "Шаблон титульной карточки по умолчанию
 msgid "Delete"
 msgstr "Удалить"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Delete {title}"
+msgstr ""
+
 #: src/components/Settings/DownloadClient/index.tsx
 msgid "Delete downloaded data"
 msgstr "Удалить загруженные данные"
@@ -1166,6 +1194,10 @@ msgstr "Удалить файл события"
 #: src/components/Common/MediaLibrarySortControl.tsx
 msgid "Delete Latest"
 msgstr "Удалить последнее"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Delete selected"
+msgstr ""
 
 #: src/components/Common/MediaLibrarySortControl.tsx
 msgid "Delete Soonest"
@@ -1202,6 +1234,10 @@ msgstr "Удалить этот сезон и сериал, если он ста
 #: src/components/Collection/CollectionDetail/TriggerRuleActionButton/index.tsx
 msgid "Delete this show"
 msgstr "Удалить этот сериал"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Deletion failed. Reload the review before trying again."
+msgstr ""
 
 #: src/components/Collection/CollectionDetail/CollectionInfo/index.tsx
 msgid "Descending"
@@ -1413,6 +1449,14 @@ msgstr "Включите оверлеи и сохраните, чтобы зап
 #: src/components/Overlays/index.tsx
 msgid "Enable overlays in Settings to manage templates."
 msgstr "Включите оверлеи в настройках, чтобы управлять шаблонами."
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Enable review mode"
+msgstr ""
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Enable review to stop this collection from taking any scheduled action. Only titles you select and confirm here can be acted on."
+msgstr ""
 
 #: src/components/Settings/Notifications/NotificationAgentCard.tsx
 msgid "Enabled"
@@ -1922,6 +1966,10 @@ msgstr "Обработано правилом: «{ruleName}»"
 msgid "Handled media items"
 msgstr "Обработано элементов медиа"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Handled titles: {handledCount}. Failed titles: {failedCount}. Failed titles were not reported as deleted."
+msgstr ""
+
 #: src/components/Rules/RuleGroup/AddModal/index.tsx
 msgid "Help"
 msgstr "Справка"
@@ -2131,6 +2179,7 @@ msgid "Last duration"
 msgstr "Последняя длительность"
 
 #: src/components/Common/MediaCard/MediaModal/WatchStatsPanel/index.tsx
+#: src/pages/CollectionReviewPage.tsx
 msgid "Last watched"
 msgstr "Последний просмотр"
 
@@ -2236,6 +2285,10 @@ msgstr "Загрузка дополнительных элементов"
 msgid "Loading profiles..."
 msgstr "Загрузка профилей..."
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Loading review..."
+msgstr ""
+
 #: src/components/Calendar/index.tsx
 msgid "Loading scheduled items..."
 msgstr "Загрузка запланированных элементов..."
@@ -2313,6 +2366,10 @@ msgstr "Журналы - Maintainerr"
 #: src/components/Settings/About/index.tsx
 msgid "Loving Maintainerr?"
 msgstr "Нравится Maintainerr?"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Low rating (<6.0)"
+msgstr ""
 
 #: src/components/Common/CommunityRuleModal/index.tsx
 msgid "Made with Version"
@@ -2564,6 +2621,10 @@ msgstr "Никогда"
 msgid "Never use TLS"
 msgstr ""
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Never watched"
+msgstr ""
+
 #: src/pages/RulesListPage.tsx
 msgid "New Rule"
 msgstr "Новое правило"
@@ -2644,6 +2705,10 @@ msgstr "ARR не сообщил дисковых путей с общим объ
 msgid "No elements yet"
 msgstr "Элементов пока нет"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "No eligible titles to review."
+msgstr ""
+
 #: src/components/Collection/CollectionDetail/CollectionInfo/index.tsx
 msgid "No filter"
 msgstr "Без фильтра"
@@ -2687,6 +2752,10 @@ msgstr "Агенты уведомлений не настроены."
 #: src/components/StorageMetrics/index.tsx
 msgid "No Radarr or Sonarr instances are configured yet. Add one in Services to see disk usage here."
 msgstr "Экземпляры Radarr или Sonarr пока не настроены. Добавьте один в разделе «Сервисы», чтобы видеть здесь использование диска."
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "No recorded viewers"
+msgstr ""
 
 #: src/components/Common/SearchMediaITem/index.tsx
 msgid "No results"
@@ -3283,6 +3352,22 @@ msgstr "Восстановить оригинальную обложку для 
 msgid "Retrieving servers..."
 msgstr "Получение серверов..."
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Retry"
+msgstr ""
+
+#: src/pages/CollectionDetailPage.tsx
+msgid "Review"
+msgstr ""
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Review before deletion"
+msgstr ""
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Review could not be loaded. Nothing was acted on."
+msgstr ""
+
 #: src/components/OverlayEditor/PropertiesPanel.tsx
 msgid "right"
 msgstr "справа"
@@ -3527,6 +3612,10 @@ msgstr "Выберите элемент, чтобы изменить его св
 msgid "Select an option"
 msgstr "Выберите вариант"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Select at most 500 titles per approval."
+msgstr ""
+
 #: src/components/Rules/Rule/RuleCreator/RuleInput/index.tsx
 msgid "Select First Value..."
 msgstr "Выберите первое значение..."
@@ -3567,6 +3656,14 @@ msgstr "{serverName} выбран как медиасервер"
 #: src/components/Settings/Tabs/index.tsx
 msgid "Selected Tab"
 msgstr "Выбранная вкладка"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Selected titles: {count}, total size: {size}"
+msgstr ""
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Selected titles: {count}, total size: {size}. Run the configured collection action? Deleted files cannot be recovered."
+msgstr ""
 
 #: src/components/Settings/Emby/index.tsx
 #: src/components/Settings/Jellyfin/index.tsx
@@ -3722,6 +3819,7 @@ msgstr "Вход…"
 #: src/components/OverlayEditor/PropertiesPanel.tsx
 #: src/components/Settings/Logs/index.tsx
 #: src/components/StorageMetrics/index.tsx
+#: src/pages/CollectionReviewPage.tsx
 msgid "Size"
 msgstr "Размер"
 
@@ -4162,6 +4260,10 @@ msgstr "Произошла ошибка при обновлении автори
 msgid "They are removed from every collection they are currently in as well."
 msgstr "Они также удаляются из всех коллекций, в которых сейчас находятся."
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "This collection is configured to Do nothing. Approval is disabled until you configure its deletion action."
+msgstr ""
+
 #: src/components/Settings/Telemetry/index.tsx
 msgid "This is the exact report your server would send, stored only as anonymous counters."
 msgstr "Это точный отчёт, который отправил бы ваш сервер, хранится только как анонимные счётчики."
@@ -4326,6 +4428,7 @@ msgid "Unexpected error"
 msgstr "Непредвиденная ошибка"
 
 #: src/components/Calendar/index.tsx
+#: src/pages/CollectionReviewPage.tsx
 msgid "Unknown"
 msgstr "Неизвестно"
 
@@ -4465,6 +4568,10 @@ msgstr "Снять с мониторинга/сохранить"
 #: src/api/calendar.ts
 msgid "Unmonitor/Keep + Unmonitor Empty Show"
 msgstr "Снять с мониторинга/сохранить + снять с мониторинга пустой сериал"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Unverified titles: {unavailableCount}. These titles are not selectable. Check Plex watch-state access and arr connections."
+msgstr ""
 
 #: src/components/OverlayEditor/ResourceField.tsx
 #: src/components/Rules/Rule/RuleCreator/CommunityRuleUpload/index.tsx
@@ -4613,6 +4720,10 @@ msgstr "Статистика просмотров"
 #: src/components/Common/MediaCard/MediaModal/WatchStatsPanel/index.tsx
 msgid "Watch time"
 msgstr "Время просмотра"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Watched by"
+msgstr ""
 
 #: src/components/Layout/TelemetryConsentModal.tsx
 msgid "We build Maintainerr in our spare time, and leaving this on is a free way to help shape what comes next."

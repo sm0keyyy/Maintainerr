@@ -58,6 +58,8 @@ import {
   RULES_COLLECTIONS_EXECUTION_LOCK_KEY,
 } from '../tasks/execution-lock.service';
 import { CollectionHandler } from './collection-handler';
+import { CollectionReviewService } from './collection-review.service';
+import { reviewApprovalSchema } from '@maintainerr/contracts';
 import {
   CollectionPosterService,
   InvalidCollectionPosterError,
@@ -291,8 +293,33 @@ export class CollectionsController {
     private readonly collectionHandler: CollectionHandler,
     private readonly collectionPosterService: CollectionPosterService,
     private readonly logger: MaintainerrLogger,
+    private readonly reviewService: CollectionReviewService,
   ) {
     this.logger.setContext(CollectionsController.name);
+  }
+
+  @Get('/:id/review')
+  listReview(@Param('id', ParseIntPipe) id: number) {
+    return this.reviewService.list(id);
+  }
+
+  @Put('/:id/review')
+  enableReview(@Param('id', ParseIntPipe) id: number) {
+    return this.reviewService.enable(id);
+  }
+
+  @Post('/:id/review/approve')
+  approveReview(
+    @Param('id', ParseIntPipe) id: number,
+    @Body(new ZodValidationPipe(reviewApprovalSchema))
+    request: z.infer<typeof reviewApprovalSchema>,
+  ) {
+    return this.reviewService.approve(id, request.ids);
+  }
+
+  @Post('/:id/review/notify')
+  notifyReview(@Param('id', ParseIntPipe) id: number) {
+    return this.reviewService.notify(id);
   }
   @Post()
   async createCollection(
@@ -548,8 +575,17 @@ export class CollectionsController {
     }
 
     try {
+      const currentCollection =
+        await this.collectionService.getCollectionRecord(request.collectionId);
+      if (!currentCollection)
+        throw new NotFoundException('Collection not found');
+      if (currentCollection.reviewRequired) {
+        throw new ConflictException(
+          'Use the review page to approve this collection action',
+        );
+      }
       const result = await this.collectionHandler.handleMedia(
-        collection,
+        currentCollection,
         collectionMedia,
       );
 

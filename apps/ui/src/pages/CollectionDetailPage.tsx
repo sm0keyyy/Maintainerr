@@ -33,6 +33,7 @@ const CollectionDetailPage = () => {
     const path = location.pathname
     if (path.endsWith('/exclusions')) return 'exclusions'
     if (path.endsWith('/info')) return 'info'
+    if (path.endsWith('/review')) return 'review'
     return 'media'
   }
 
@@ -72,6 +73,10 @@ const CollectionDetailPage = () => {
     {
       text: t`Info`,
       route: 'info',
+    },
+    {
+      text: t`Review`,
+      route: 'review',
     },
   ]
 

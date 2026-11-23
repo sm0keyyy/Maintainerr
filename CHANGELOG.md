@@ -1,3 +1,14 @@
+# Fork: review queue (unreleased)
+
+- Add a phone-friendly, biggest-first collection review with explicit selection,
+  count/size confirmation, and API approval of only the selected members.
+- Review mode blocks scheduled and legacy manual handling. Eligibility is
+  rechecked on approval; recent watches and recent arr additions remain protected.
+- Add Plex rule property 55, `lastViewedAtByAnyUser`, backed by read-only per-user
+  stored watch state as well as session history and the owner metadata date.
+- Add quarterly review-ready notifications and ntfy click-through URLs.
+- Add the `collection.reviewRequired` database column.
+
 # [3.33.0](https://github.com/Maintainerr/Maintainerr/compare/v3.32.0...v3.33.0) (2026-11-20)
 
 

@@ -1,4 +1,5 @@
 import { MediaItem } from '@maintainerr/contracts';
+import { PlexStoredWatchService } from '../../api/plex-api/plex-stored-watch.service';
 import { Mocked, TestBed } from '@suites/unit';
 import {
   createMediaItem,
@@ -168,6 +169,24 @@ describe('PlexGetterService', () => {
     jest.clearAllMocks();
   });
 
+  it('last viewed by any user reads stored state when owner metadata and session history miss it', async () => {
+    const { unit, unitRef } =
+      await TestBed.solitary(PlexGetterService).compile();
+    unitRef.get(PlexApiService).getMetadata.mockResolvedValue(makeMetadata());
+    unitRef.get(PlexApiService).getWatchHistory.mockResolvedValue([]);
+    unitRef
+      .get(PlexStoredWatchService)
+      .getWatchers.mockReturnValue([
+        {
+          userId: '2',
+          name: 'Other user',
+          lastWatchedAt: '2026-10-23T00:00:00.000Z',
+        },
+      ]);
+    await expect(
+      unit.get(55, createMediaItem({ type: 'movie', lastViewedAt: undefined })),
+    ).resolves.toEqual(new Date('2026-10-23T00:00:00.000Z'));
+  });
   describe('watch state rules', () => {
     let libItem: MediaItem;
 

@@ -1,6 +1,8 @@
 import type {
   CollectionPosterDeleteResponse,
   CollectionPosterUploadResponse,
+  CollectionReview,
+  ReviewApprovalResult,
 } from '@maintainerr/contracts'
 import { QueryClient, useQuery, UseQueryOptions } from '@tanstack/react-query'
 import type { ICollection } from '../components/Collection'
@@ -8,6 +10,7 @@ import GetApiHandler, {
   API_BASE_PATH,
   DeleteApiHandler,
   PostApiHandler,
+  PutApiHandler,
 } from '../utils/ApiHandler'
 
 type UseCollectionsQueryKey = ['collections', string]
@@ -152,3 +155,18 @@ export const useCollection = (
     enabled: queryEnabled,
   })
 }
+
+export const useCollectionReview = (id: string) =>
+  useQuery({
+    queryKey: ['collections', 'review', id],
+    queryFn: () => GetApiHandler<CollectionReview>(`/collections/${id}/review`),
+    retry: false,
+  })
+
+export const enableCollectionReview = (id: string) =>
+  PutApiHandler<void>(`/collections/${id}/review`, {})
+
+export const approveCollectionReview = (id: string, ids: string[]) =>
+  PostApiHandler<ReviewApprovalResult>(`/collections/${id}/review/approve`, {
+    ids,
+  })

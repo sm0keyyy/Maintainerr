@@ -55,6 +55,7 @@ export const createCollection = (
     description: '',
     isActive: true,
     arrAction: ServarrAction.DELETE,
+    reviewRequired: false,
     type: faker.helpers.arrayElement([
       'movie',
       'episode',

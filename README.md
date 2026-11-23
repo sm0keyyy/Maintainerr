@@ -315,6 +315,52 @@ Missing something, or want to back an idea?
 
 [![Vote on features](https://img.shields.io/badge/Vote_on_features-78350f?style=for-the-badge)](https://features.maintainerr.info/?view=most-wanted)
 
+# Fork review queue
+
+This fork adds a **Review** tab to each Plex movie or whole-show collection.
+Enable review mode there before configuring a destructive action. Once enabled,
+the timer and legacy single-item action cannot act on that collection. Nothing
+is selected initially. Select titles, press **Delete selected**, then confirm the
+count, total size and exact titles. The existing collection action runs only on
+those titles. A Do nothing collection remains inert.
+
+Review requires `PLEX_DATABASE_PATH` to point to the Plex library database.
+Mount its database directory read-only, including its WAL/SHM files, so the
+reader sees current committed state. The reader opens SQLite read-only and sets
+`query_only`; it never modifies Plex. Missing access or an unread title excludes
+that title from approval rather than calling it never watched.
+
+The newest per-user stored `last_viewed_at` protects a movie even with zero
+current views. Whole shows aggregate every current episode across all users.
+Session history and the owner's metadata date provide additional protection.
+Plex rule property **Last viewed by any user** (id 55) exposes the same stored
+signal for rule membership. Use NOT EXISTS OR BEFORE for the date rule.
+Review also independently enforces a 365-day watch and age window. Movie age
+is Radarr `movieFile.dateAdded`; show age is Sonarr `added`. Unknown age, size or
+watch state is not selectable. Resolution does not exempt a title.
+
+Set `REVIEW_BASE_URL` to the externally reachable application URL, including any
+base path. Select **Review Ready** on the existing ntfy notification agent.
+At 09:00 on January/April/July/October 1 (server timezone), active review
+collections with candidates produce a notification linked to their review page.
+No approval or deletion is scheduled. Notification delivery failures remain
+visible in the existing notification logs.
+
+API (no authentication; restrict access to trusted hosts):
+
+- `PUT /api/collections/:id/review`: enable review mode under the execution lock.
+- `GET /api/collections/:id/review`: list eligible candidates, largest first,
+  plus ids whose state could not be verified.
+- `POST /api/collections/:id/review/approve` with `{"ids":["123","456"]}`:
+  revalidate all selected ids under the shared lock, then run the configured
+  action on exactly those members. Maximum 500 distinct ids. Returns
+  `handledIds` and `failedIds`; partial failures are not successes.
+- `POST /api/collections/:id/review/notify`: prepare and notify a review now.
+
+Keep the port Tailscale-only. The UI confirmation is not authentication.
+Back up the application database before upgrading. Restore that backup for
+rollback rather than running SQLite down migrations.
+
 # Contributing
 
 Maintainerr is community-driven, and we're always looking for more hands. You don't have to be a developer:

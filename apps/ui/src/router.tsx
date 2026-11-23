@@ -60,6 +60,9 @@ const collectionMediaRoute = createLazyRoute(
 const collectionExclusionsRoute = createLazyRoute(
   () => import('./pages/CollectionExclusionsPage'),
 )
+const collectionReviewRoute = createLazyRoute(
+  () => import('./pages/CollectionReviewPage'),
+)
 const calendarRoute = createLazyRoute(() => import('./pages/CalendarPage'))
 const storageMetricsRoute = createLazyRoute(
   () => import('./pages/StorageMetricsPage'),
@@ -185,6 +188,11 @@ const appRoutes: AppRoute[] = [
                 path: 'info',
                 lazy: collectionInfoRoute.lazy,
                 preload: collectionInfoRoute.preload,
+              },
+              {
+                path: 'review',
+                lazy: collectionReviewRoute.lazy,
+                preload: collectionReviewRoute.preload,
               },
             ],
           },

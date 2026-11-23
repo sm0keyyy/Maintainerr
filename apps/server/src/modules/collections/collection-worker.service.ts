@@ -214,6 +214,7 @@ export class CollectionWorkerService extends TaskBase {
       });
 
       const collectionsToHandle = collections.filter((collection) => {
+        if (collection.reviewRequired) return false;
         if (collection.arrAction === ServarrAction.DO_NOTHING) {
           doNothingCollectionCount++;
           this.logger.log(

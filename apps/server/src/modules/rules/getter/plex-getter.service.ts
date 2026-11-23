@@ -12,6 +12,7 @@ import { PlexApiService } from '../../../modules/api/plex-api/plex-api.service';
 import { PlexAdapterService } from '../../api/media-server/plex/plex-adapter.service';
 import { PlexMapper } from '../../api/media-server/plex/plex.mapper';
 import { PlexMetadata } from '../../api/plex-api/interfaces/media.interface';
+import { PlexStoredWatchService } from '../../api/plex-api/plex-stored-watch.service';
 import { MaintainerrLogger } from '../../logging/logs.service';
 import {
   Application,
@@ -44,6 +45,7 @@ export class PlexGetterService {
     private readonly plexAdapter: PlexAdapterService,
     private readonly metadataRuleValueService: MetadataRuleValueService,
     private readonly logger: MaintainerrLogger,
+    private readonly storedWatch: PlexStoredWatchService,
   ) {
     logger.setContext(PlexGetterService.name);
     const ruleConstanst = new RuleConstants();
@@ -286,6 +288,32 @@ export class PlexGetterService {
             ...(grandparent?.Collection?.map((collection) => collection.tag) ??
               []),
           ]);
+        }
+        case 'lastViewedAtByAnyUser': {
+          if (metadata.type !== 'movie' && metadata.type !== 'show')
+            return null;
+          const watchers = this.storedWatch.getWatchers(
+            metadata.ratingKey,
+            metadata.type,
+          );
+          const history = await this.plexApi.getWatchHistory(
+            metadata.ratingKey,
+            false,
+            metadata.type,
+            libraryId,
+          );
+          let newest = libItem.lastViewedAt?.getTime() ?? 0;
+          for (const watcher of watchers) {
+            newest = Math.max(
+              newest,
+              new Date(watcher.lastWatchedAt).getTime(),
+            );
+          }
+          for (const view of history) {
+            newest = Math.max(newest, view.viewedAt * 1000);
+          }
+          if (!Number.isFinite(newest)) throw new Error('Unread watch date');
+          return newest > 0 ? new Date(newest) : null;
         }
         case 'lastViewedAt': {
           // Errors must surface so the outer catch returns `undefined` for an

@@ -36,6 +36,29 @@ describe('NtfyAgent', () => {
     post.mockResolvedValue({});
   });
 
+  it('includes the review click URL in the ntfy payload', async () => {
+    const agent = createAgent();
+    await agent.send(
+      NotificationType.TEST_NOTIFICATION,
+      Object.assign(
+        {
+          subject: 'Review ready',
+          message: 'Pick titles to delete',
+        },
+        { clickUrl: 'http://100.80.132.87:6246/collections/7/review' },
+      ),
+    );
+    expect(post).toHaveBeenCalledWith(
+      'https://ntfy.sh/maintainerr',
+      'Pick titles to delete',
+      {
+        headers: expect.objectContaining({
+          Click: 'http://100.80.132.87:6246/collections/7/review',
+        }),
+      },
+    );
+  });
+
   it('allows public topics without a token', () => {
     const agent = createAgent();
 

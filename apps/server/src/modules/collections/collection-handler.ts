@@ -72,7 +72,9 @@ export class CollectionHandler {
     collection: Collection,
     media: CollectionMedia,
     libraryReads?: ArrLookupCache,
+    reviewApproved = false,
   ): Promise<HandleMediaResult> {
+    if (collection.reviewRequired && !reviewApproved) return 'failed';
     if (collection.arrAction === ServarrAction.DO_NOTHING) {
       return 'failed';
     }

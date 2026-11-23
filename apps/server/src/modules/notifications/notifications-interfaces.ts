@@ -172,4 +172,5 @@ export enum NotificationType {
   OVERLAY_APPLIED = 256,
   OVERLAY_REVERTED = 512,
   UPDATE_AVAILABLE = 1024,
+  REVIEW_READY = 2048,
 }

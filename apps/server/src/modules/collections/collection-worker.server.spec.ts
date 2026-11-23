@@ -97,6 +97,25 @@ describe('CollectionWorkerService', () => {
     expect(finishedEvents).toHaveLength(1);
   });
 
+  it('never handles a review collection on a scheduled or forced run', async () => {
+    const collection = Object.assign(
+      createCollection({
+        arrAction: ServarrAction.DELETE,
+        deleteAfterDays: 0,
+      }),
+      { reviewRequired: true },
+    );
+    collectionRepository.find.mockResolvedValue([collection]);
+    collectionMediaRepository.find.mockResolvedValue([
+      createCollectionMedia(collection),
+    ]);
+    collectionHandler.handleMedia.mockResolvedValue('handled');
+
+    await collectionWorkerService.execute();
+
+    expect(collectionHandler.handleMedia).not.toHaveBeenCalled();
+  });
+
   it('should not handle media for Do Nothing collections', async () => {
     const collection = createCollection({
       arrAction: ServarrAction.DO_NOTHING,

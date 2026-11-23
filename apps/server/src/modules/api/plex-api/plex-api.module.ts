@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PlexApiService } from './plex-api.service';
+import { PlexStoredWatchService } from './plex-stored-watch.service';
 
 /**
  * PlexApiModule
@@ -10,7 +11,7 @@ import { PlexApiService } from './plex-api.service';
  */
 @Module({
   controllers: [],
-  providers: [PlexApiService],
-  exports: [PlexApiService],
+  providers: [PlexApiService, PlexStoredWatchService],
+  exports: [PlexApiService, PlexStoredWatchService],
 })
 export class PlexApiModule {}

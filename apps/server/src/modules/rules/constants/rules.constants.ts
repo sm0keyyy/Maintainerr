@@ -565,6 +565,14 @@ export class RuleConstants {
           mediaType: MediaType.MOVIE,
           type: RuleType.DATE,
         },
+        {
+          id: 55,
+          name: 'lastViewedAtByAnyUser',
+          humanName: 'Last viewed by any user',
+          mediaType: MediaType.BOTH,
+          showType: ['show'],
+          type: RuleType.DATE,
+        },
       ],
     },
     {

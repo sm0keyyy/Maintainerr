@@ -9,6 +9,7 @@ export interface NotificationPayload {
   subject: string;
   image?: string;
   message?: string;
+  clickUrl?: string;
   extra?: { name: string; value: string }[];
 }
 

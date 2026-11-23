@@ -24,6 +24,7 @@ import { Collection } from './entities/collection.entities';
 import { CollectionMedia } from './entities/collection_media.entities';
 import { CollectionMediaRuleRemoval } from './entities/collection_media_rule_removal.entities';
 import { RecentlyHandledMediaService } from './recently-handled-media.service';
+import { CollectionReviewService } from './collection-review.service';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { RecentlyHandledMediaService } from './recently-handled-media.service';
   ],
   providers: [
     CollectionsService,
+    CollectionReviewService,
     CollectionWorkerService,
     CollectionLogCleanerService,
     CollectionHandler,

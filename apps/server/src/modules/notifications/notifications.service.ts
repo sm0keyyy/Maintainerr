@@ -71,6 +71,11 @@ export const hasNotificationType = (
 export class NotificationService implements OnModuleInit {
   private activeAgents: NotificationAgent[] = [];
 
+  @OnEvent('collection.review-ready')
+  async reviewReady(payload: NotificationPayload): Promise<string[]> {
+    return this.sendNotification(NotificationType.REVIEW_READY, payload);
+  }
+
   // Dedupe state for notifications fired during a rule-executor batch
   // (one processQueue() pass). Two same-titled automatic rule groups
   // sharing a Plex collection both emit `Media Added`/`Removed` for the

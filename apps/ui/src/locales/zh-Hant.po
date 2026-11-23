@@ -418,6 +418,10 @@ msgstr "新增至收藏集"
 msgid "Add/Exclude <0>selected</0>"
 msgstr "新增／排除<0>選取的項目</0>"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Added"
+msgstr ""
+
 #: src/components/Calendar/index.tsx
 msgid "Added On"
 msgstr "新增日期"
@@ -538,6 +542,10 @@ msgstr "尚未設定 API 金鑰。"
 msgid "Apply date overlays to posters in this collection"
 msgstr "將日期覆蓋圖層套用至此收藏集的海報"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Applying collection action..."
+msgstr ""
+
 #: src/components/Rules/RuleGroup/index.tsx
 #: src/components/Settings/ServiceCard.tsx
 msgid "Are you sure?"
@@ -644,6 +652,10 @@ msgstr "以下是觸發此動作的規則評估結果。輸出格式與「測試
 #: src/components/Rules/Rule/RuleCreator/RuleInput/index.tsx
 msgid "Bigger"
 msgstr "大於"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Biggest first. Nothing is selected automatically. Titles watched by anyone or added in the last 365 days are protected."
+msgstr ""
 
 #: src/components/OverlayEditor/PropertiesPanel.tsx
 msgid "bold"
@@ -883,6 +895,14 @@ msgstr "設定 Emby 伺服器連線。輸入伺服器 URL 和 API 金鑰，或�
 msgid "Configured"
 msgstr "已設定"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Confirm collection action"
+msgstr ""
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Confirm delete"
+msgstr ""
+
 #: src/components/Common/MediaActionModal.tsx
 msgid "Confirm Global Exclusion"
 msgstr "確認全域排除"
@@ -963,6 +983,10 @@ msgstr "無法備份資料庫"
 #: src/components/Rules/RuleGroup/AddModal/CollectionPosterPicker.tsx
 msgid "Could not clear the stored poster"
 msgstr "無法清除已儲存的海報"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Could not enable review mode. Try again after the current rule or collection run."
+msgstr ""
 
 #: src/components/Common/LibrarySwitcher/index.tsx
 msgid "Could not fetch libraries"
@@ -1141,6 +1165,10 @@ msgstr "預設標題卡範本"
 msgid "Delete"
 msgstr "刪除"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Delete {title}"
+msgstr ""
+
 #: src/components/Settings/DownloadClient/index.tsx
 msgid "Delete downloaded data"
 msgstr "刪除已下載資料"
@@ -1164,6 +1192,10 @@ msgstr "刪除賽事檔案"
 #: src/components/Common/MediaLibrarySortControl.tsx
 msgid "Delete Latest"
 msgstr "最晚刪除的優先"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Delete selected"
+msgstr ""
 
 #: src/components/Common/MediaLibrarySortControl.tsx
 msgid "Delete Soonest"
@@ -1200,6 +1232,10 @@ msgstr "刪除此季度，若影集變為空白則一併移除影集"
 #: src/components/Collection/CollectionDetail/TriggerRuleActionButton/index.tsx
 msgid "Delete this show"
 msgstr "刪除此影集"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Deletion failed. Reload the review before trying again."
+msgstr ""
 
 #: src/components/Collection/CollectionDetail/CollectionInfo/index.tsx
 msgid "Descending"
@@ -1411,6 +1447,14 @@ msgstr "啟用覆蓋圖層並儲存，以便手動執行"
 #: src/components/Overlays/index.tsx
 msgid "Enable overlays in Settings to manage templates."
 msgstr "請在「設定」中啟用覆蓋圖層，以管理範本。"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Enable review mode"
+msgstr ""
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Enable review to stop this collection from taking any scheduled action. Only titles you select and confirm here can be acted on."
+msgstr ""
 
 #: src/components/Settings/Notifications/NotificationAgentCard.tsx
 msgid "Enabled"
@@ -1920,6 +1964,10 @@ msgstr "由規則：''{ruleName}'' 處理"
 msgid "Handled media items"
 msgstr "已處理的媒體項目"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Handled titles: {handledCount}. Failed titles: {failedCount}. Failed titles were not reported as deleted."
+msgstr ""
+
 #: src/components/Rules/RuleGroup/AddModal/index.tsx
 msgid "Help"
 msgstr "說明"
@@ -2129,6 +2177,7 @@ msgid "Last duration"
 msgstr "上次執行時間"
 
 #: src/components/Common/MediaCard/MediaModal/WatchStatsPanel/index.tsx
+#: src/pages/CollectionReviewPage.tsx
 msgid "Last watched"
 msgstr "上次觀看時間"
 
@@ -2234,6 +2283,10 @@ msgstr "正在載入更多項目"
 msgid "Loading profiles..."
 msgstr "正在載入設定檔……"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Loading review..."
+msgstr ""
+
 #: src/components/Calendar/index.tsx
 msgid "Loading scheduled items..."
 msgstr "正在載入排程項目……"
@@ -2311,6 +2364,10 @@ msgstr "日誌 - Maintainerr"
 #: src/components/Settings/About/index.tsx
 msgid "Loving Maintainerr?"
 msgstr "喜歡 Maintainerr 嗎？"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Low rating (<6.0)"
+msgstr ""
 
 #: src/components/Common/CommunityRuleModal/index.tsx
 msgid "Made with Version"
@@ -2562,6 +2619,10 @@ msgstr "永不"
 msgid "Never use TLS"
 msgstr "永不使用 TLS"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Never watched"
+msgstr ""
+
 #: src/pages/RulesListPage.tsx
 msgid "New Rule"
 msgstr "新增規則"
@@ -2642,6 +2703,10 @@ msgstr "ARR 未回報含總容量資訊的磁碟路徑"
 msgid "No elements yet"
 msgstr "尚無元素"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "No eligible titles to review."
+msgstr ""
+
 #: src/components/Collection/CollectionDetail/CollectionInfo/index.tsx
 msgid "No filter"
 msgstr "不篩選"
@@ -2685,6 +2750,10 @@ msgstr "尚未設定通知代理程式。"
 #: src/components/StorageMetrics/index.tsx
 msgid "No Radarr or Sonarr instances are configured yet. Add one in Services to see disk usage here."
 msgstr "尚未設定 Radarr 或 Sonarr 執行個體。請在「服務」新增一個，以在此查看磁碟使用情況。"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "No recorded viewers"
+msgstr ""
 
 #: src/components/Common/SearchMediaITem/index.tsx
 msgid "No results"
@@ -3281,6 +3350,22 @@ msgstr "要還原所有收藏集的原始圖片嗎？"
 msgid "Retrieving servers..."
 msgstr "正在取得伺服器清單……"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Retry"
+msgstr ""
+
+#: src/pages/CollectionDetailPage.tsx
+msgid "Review"
+msgstr ""
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Review before deletion"
+msgstr ""
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Review could not be loaded. Nothing was acted on."
+msgstr ""
+
 #: src/components/OverlayEditor/PropertiesPanel.tsx
 msgid "right"
 msgstr "靠右"
@@ -3525,6 +3610,10 @@ msgstr "選擇元素以編輯其屬性"
 msgid "Select an option"
 msgstr "選擇選項"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Select at most 500 titles per approval."
+msgstr ""
+
 #: src/components/Rules/Rule/RuleCreator/RuleInput/index.tsx
 msgid "Select First Value..."
 msgstr "選擇第一個值……"
@@ -3565,6 +3654,14 @@ msgstr "已將 {serverName} 設為您的媒體伺服器"
 #: src/components/Settings/Tabs/index.tsx
 msgid "Selected Tab"
 msgstr "已選取的分頁"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Selected titles: {count}, total size: {size}"
+msgstr ""
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Selected titles: {count}, total size: {size}. Run the configured collection action? Deleted files cannot be recovered."
+msgstr ""
 
 #: src/components/Settings/Emby/index.tsx
 #: src/components/Settings/Jellyfin/index.tsx
@@ -3720,6 +3817,7 @@ msgstr "正在登入…"
 #: src/components/OverlayEditor/PropertiesPanel.tsx
 #: src/components/Settings/Logs/index.tsx
 #: src/components/StorageMetrics/index.tsx
+#: src/pages/CollectionReviewPage.tsx
 msgid "Size"
 msgstr "大小"
 
@@ -4160,6 +4258,10 @@ msgstr "更新 Plex 身分驗證時發生錯誤。"
 msgid "They are removed from every collection they are currently in as well."
 msgstr "這些項目也會從目前所屬的所有收藏集中移除。"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "This collection is configured to Do nothing. Approval is disabled until you configure its deletion action."
+msgstr ""
+
 #: src/components/Settings/Telemetry/index.tsx
 msgid "This is the exact report your server would send, stored only as anonymous counters."
 msgstr "這是您的伺服器實際會傳送的完整報告，且只會以匿名計數資料儲存。"
@@ -4324,6 +4426,7 @@ msgid "Unexpected error"
 msgstr "未預期的錯誤"
 
 #: src/components/Calendar/index.tsx
+#: src/pages/CollectionReviewPage.tsx
 msgid "Unknown"
 msgstr "未知"
 
@@ -4463,6 +4566,10 @@ msgstr "取消監控／保留"
 #: src/api/calendar.ts
 msgid "Unmonitor/Keep + Unmonitor Empty Show"
 msgstr "取消監控／保留，並取消監控空白影集"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Unverified titles: {unavailableCount}. These titles are not selectable. Check Plex watch-state access and arr connections."
+msgstr ""
 
 #: src/components/OverlayEditor/ResourceField.tsx
 #: src/components/Rules/Rule/RuleCreator/CommunityRuleUpload/index.tsx
@@ -4611,6 +4718,10 @@ msgstr "觀看統計"
 #: src/components/Common/MediaCard/MediaModal/WatchStatsPanel/index.tsx
 msgid "Watch time"
 msgstr "觀看時間"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Watched by"
+msgstr ""
 
 #: src/components/Layout/TelemetryConsentModal.tsx
 msgid "We build Maintainerr in our spare time, and leaving this on is a free way to help shape what comes next."
