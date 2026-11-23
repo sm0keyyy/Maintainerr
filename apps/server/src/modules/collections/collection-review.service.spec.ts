@@ -265,7 +265,54 @@ describe('Collection review', () => {
         ? [{ userId: '2', name: 'Other user', lastWatchedAt: recent }]
         : [],
     );
-    await expect(service.approve(7, ['2'])).rejects.toThrow('watched recently');
+    expect(
+      (await service.list(7)).candidates.map((item) => item.id),
+    ).not.toContain('2');
+    await expect(service.approve(7, ['2'])).rejects.toThrow();
     expect(handler.handleMedia).not.toHaveBeenCalled();
   });
+  it.each(['watch', 'replacement import'])(
+    'blocks a %s that lands during the final inventory discovery',
+    async (change) => {
+      let atDeleteBoundary = false;
+      let changed = false;
+      const remove = jest.fn();
+      const readMetadata = plex.getMetadataBatch.getMockImplementation()!;
+      stored.getItemIds.mockReturnValue(
+        Array.from({ length: 101 }, (_, index) => String(index + 1)),
+      );
+      plex.getMetadataBatch.mockImplementation(async (ids, useCache) => {
+        const result = await readMetadata(ids, useCache);
+        if (atDeleteBoundary && ids.includes('101')) changed = true;
+        return result;
+      });
+      stored.getWatchers.mockImplementation((id) =>
+        change === 'watch' && changed && id === '2'
+          ? [{ userId: '2', name: 'Other user', lastWatchedAt: recent }]
+          : [],
+      );
+      getMovie.mockImplementation(async (id: number) => ({
+        id,
+        tmdbId: id,
+        path: `/movies/${id}`,
+        movieFile: {
+          dateAdded: change === 'replacement import' && changed ? recent : old,
+        },
+      }));
+      handler.handleMedia.mockImplementation(
+        async (_collection, _media, _reads, approval) => {
+          atDeleteBoundary = true;
+          await approval!.beforeDelete();
+          remove(approval!.target.id);
+          return 'handled';
+        },
+      );
+      await expect(service.approve(7, ['2'])).resolves.toEqual({
+        handledIds: [],
+        failedIds: ['2'],
+      });
+      expect(changed).toBe(true);
+      expect(remove).not.toHaveBeenCalled();
+    },
+  );
 });

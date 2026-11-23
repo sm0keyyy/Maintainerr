@@ -361,6 +361,8 @@ API (no authentication; restrict access to trusted hosts):
   session checks run again immediately before each arr deletion; a newly
   protected target is skipped. Maximum 500 distinct ids. Returns `handledIds`
   and `failedIds`; partial failures are not successes.
+  Inventory discovery finishes before final age/watch/session checks. Candidate
+  listing uses the same affected-copy watch protection as approval.
 - `POST /api/collections/:id/review/notify`: prepare and notify a review now.
 
 Keep the port Tailscale-only. The UI confirmation is not authentication.

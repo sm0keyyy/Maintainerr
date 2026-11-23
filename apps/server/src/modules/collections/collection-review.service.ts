@@ -171,12 +171,78 @@ export class CollectionReviewService {
     );
   }
 
+  private async inventory(collection: Collection): Promise<MediaItem[]> {
+    const type = collection.type === 'movie' ? 'movie' : 'show';
+    const ids = this.storedWatch.getItemIds(type);
+    const items: MediaItem[] = [];
+    for (let start = 0; start < ids.length; start += 100) {
+      const batch = await this.freshItems(ids.slice(start, start + 100));
+      if (batch.some((item) => item.type !== type))
+        throw new Error('Unexpected Plex inventory type');
+      items.push(...batch);
+    }
+    return items;
+  }
+
   private async validateTarget(
     collection: Collection,
     row: CollectionMedia,
     bound: ReviewTarget,
+    inventory?: MediaItem[],
   ): Promise<void> {
-    const [selected] = await this.freshItems([row.mediaServerId]);
+    const items = inventory ?? (await this.inventory(collection));
+    const exclusions = await this.exclusions.find();
+    const cascade = buildExclusionCascadeSets(
+      exclusions.filter(
+        (exclusion) =>
+          exclusion.ruleGroupId == null ||
+          exclusion.ruleGroupId === collection.ruleGroup?.id,
+      ),
+    );
+    const affectedIds: string[] = [];
+    const folder = bound.path.replace(/[\\/]+$/, '');
+    for (const item of items) {
+      const providerIds =
+        bound.kind === 'radarr' ? item.providerIds.tmdb : item.providerIds.tvdb;
+      if (!item.path && !providerIds?.length)
+        throw new Error('Unread Plex inventory identity');
+      const sameProvider = providerIds?.includes(String(bound.providerId));
+      const samePath =
+        item.path === folder ||
+        item.path?.startsWith(`${folder}/`) ||
+        item.path?.startsWith(`${folder}\\`);
+      if (!sameProvider && !samePath) continue;
+      affectedIds.push(item.id);
+      if (isMediaItemExcluded(cascade, item))
+        throw new Error('Affected Plex item is excluded');
+    }
+    if (!affectedIds.includes(row.mediaServerId))
+      throw new Error('Selected Plex item does not map to target');
+
+    // Discovery is complete. Only bounded target reads follow, never another
+    // library scan between these safety checks and the arr delete request.
+    const affected: MediaItem[] = [];
+    for (let start = 0; start < affectedIds.length; start += 100) {
+      affected.push(
+        ...(await this.freshItems(affectedIds.slice(start, start + 100))),
+      );
+    }
+    const lastWatchedByItem = new Map<string, number>();
+    for (const item of affected) {
+      if (item.type !== collection.type || isMediaItemExcluded(cascade, item))
+        throw new Error('Affected Plex item changed or is excluded');
+      const watchers = await this.watchers(collection, item);
+      lastWatchedByItem.set(
+        item.id,
+        Math.max(
+          item.lastViewedAt?.getTime() ?? 0,
+          ...watchers.map((watcher) =>
+            new Date(watcher.lastWatchedAt).getTime(),
+          ),
+        ),
+      );
+    }
+    const selected = affected.find((item) => item.id === row.mediaServerId)!;
     const fresh = await this.target(collection, row, selected);
     if (
       fresh.id !== bound.id ||
@@ -189,52 +255,18 @@ export class CollectionReviewService {
     const cutoff = Date.now() - REVIEW_WINDOW_MS;
     if (new Date(fresh.addedAt).getTime() >= cutoff)
       throw new Error('Target is too recent');
-    const type = collection.type === 'movie' ? 'movie' : 'show';
-    const ids = this.storedWatch.getItemIds(type);
-    if (!ids.includes(row.mediaServerId))
-      throw new Error('Selected Plex item disappeared');
-    const exclusions = await this.exclusions.find();
-    const cascade = buildExclusionCascadeSets(
-      exclusions.filter(
-        (exclusion) =>
-          exclusion.ruleGroupId == null ||
-          exclusion.ruleGroupId === collection.ruleGroup?.id,
-      ),
-    );
-    const affectedIds: string[] = [];
-    const folder = bound.path.replace(/[\\/]+$/, '');
-    for (let start = 0; start < ids.length; start += 100) {
-      for (const item of await this.freshItems(ids.slice(start, start + 100))) {
-        if (item.type !== type)
-          throw new Error('Unexpected Plex inventory type');
-        const providerIds =
-          bound.kind === 'radarr'
-            ? item.providerIds.tmdb
-            : item.providerIds.tvdb;
-        if (!item.path && !providerIds?.length)
-          throw new Error('Unread Plex inventory identity');
-        const sameProvider = providerIds?.includes(String(bound.providerId));
-        const samePath =
-          item.path === folder ||
-          item.path?.startsWith(`${folder}/`) ||
-          item.path?.startsWith(`${folder}\\`);
-        if (!sameProvider && !samePath) continue;
-        affectedIds.push(item.id);
-        if (isMediaItemExcluded(cascade, item))
-          throw new Error('Affected Plex item is excluded');
-        const watchers = await this.watchers(collection, item);
-        const lastWatched = Math.max(
-          item.lastViewedAt?.getTime() ?? 0,
-          ...watchers.map((watcher) =>
-            new Date(watcher.lastWatchedAt).getTime(),
-          ),
-        );
-        if (!Number.isFinite(lastWatched) || lastWatched >= cutoff)
-          throw new Error('Affected Plex item was watched recently');
-      }
+    // History/user lookups can await network I/O. Re-read all affected stored
+    // dates together after those reads and the fresh arr-age lookup finish.
+    for (const item of affected) {
+      const lastWatched = Math.max(
+        lastWatchedByItem.get(item.id)!,
+        ...this.storedWatch
+          .getWatchers(item.id, item.type)
+          .map((watcher) => new Date(watcher.lastWatchedAt).getTime()),
+      );
+      if (!Number.isFinite(lastWatched) || lastWatched >= cutoff)
+        throw new Error('Affected Plex item was watched recently');
     }
-    if (!affectedIds.includes(row.mediaServerId))
-      throw new Error('Selected Plex item does not map to target');
     const playing = await this.playing();
     if (affectedIds.some((id) => playing.has(id)))
       throw new Error('Affected Plex item is playing');
@@ -301,6 +333,7 @@ export class CollectionReviewService {
       ),
     );
     const cutoff = Date.now() - REVIEW_WINDOW_MS;
+    const inventory = await this.inventory(collection);
     for (const row of rows) {
       if (row.ruleEvaluationFailed || playing.has(row.mediaServerId)) continue;
       try {
@@ -318,8 +351,10 @@ export class CollectionReviewService {
         if (!Number.isFinite(lastWatchedMs))
           throw new Error('Invalid watch date');
         if (lastWatchedMs >= cutoff) continue;
-        const { addedAt } = await this.target(collection, row, item);
+        const target = await this.target(collection, row, item);
+        const { addedAt } = target;
         if (new Date(addedAt).getTime() >= cutoff) continue;
+        await this.validateTarget(collection, row, target, inventory);
         // Show metadata has no file size: sum the same leaf files as the
         // existing collection size resolver, never a season-level action.
         let sizeBytes = item.mediaSources.reduce(

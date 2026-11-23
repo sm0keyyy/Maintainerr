@@ -8,6 +8,8 @@
   check all affected Plex copies. Repeat fresh watch/age/session checks at each
   destructive boundary. Reject approvals unless whole-title Delete and import
   exclusions are configured.
+- Finish inventory discovery before the final target-age and stored-watch reads;
+  apply the same affected-copy protection to candidate listings.
 - Add Plex rule property 55, `lastViewedAtByAnyUser`, backed by read-only per-user
   stored watch state as well as session history and the owner metadata date.
 - Add quarterly review-ready notifications and ntfy click-through URLs.
