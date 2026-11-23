@@ -62,6 +62,31 @@ const byName = (cols: ColInfo[]): Record<string, ColInfo> =>
 describe('database migrations', () => {
   const all = loadMigrations();
 
+  it('requires review for every existing collection and every newly inserted collection', async () => {
+    const ds = await makeDS(
+      all.slice(0, -1).map((migration) => migration.cls),
+    ).initialize();
+    try {
+      await ds.runMigrations();
+      await ds.query(
+        `INSERT INTO collection (libraryId, title, type, reviewRequired) VALUES ('2', 'old season', 'season', 0)`,
+      );
+      const runner = ds.createQueryRunner();
+      await runner.beforeMigration();
+      await new all[all.length - 1].cls().up(runner);
+      await runner.afterMigration();
+      await runner.release();
+      await ds.query(
+        `INSERT INTO collection (libraryId, title, type) VALUES ('2', 'new season', 'season')`,
+      );
+      expect(await ds.query(`SELECT reviewRequired FROM collection`)).toEqual([
+        { reviewRequired: 1 },
+        { reviewRequired: 1 },
+      ]);
+    } finally {
+      await ds.destroy();
+    }
+  });
   it('apply in order on a fresh DB, each recorded exactly once', async () => {
     const ds = await makeDS(all.map((m) => m.cls)).initialize();
     try {
@@ -246,6 +271,7 @@ describe('database migrations', () => {
         deleteAfterDays: 30,
         // Saved before the scope existed: it keeps every level.
         overlayScope: 'all',
+        reviewRequired: 1,
       });
       expect(await ds.query(`SELECT * FROM collection_media`)).toEqual([
         expect.objectContaining({ collectionId: 1, mediaServerId: 'show-1' }),
@@ -270,8 +296,8 @@ describe('database migrations', () => {
     try {
       await ds.runMigrations();
       expect(
-        byName(await columns(ds, 'collection')).overlayScope,
-      ).toBeDefined();
+        byName(await columns(ds, 'collection')).reviewRequired.dflt_value,
+      ).toBe('1');
       await ds.query(
         `INSERT INTO collection ("libraryId", "title", "type", "overlayScope") VALUES ('2', 'Fresh', 'show', 'show_only')`,
       );
@@ -279,8 +305,8 @@ describe('database migrations', () => {
       await ds.undoLastMigration();
 
       expect(
-        byName(await columns(ds, 'collection')).overlayScope,
-      ).toBeUndefined();
+        byName(await columns(ds, 'collection')).reviewRequired.dflt_value,
+      ).toBe('0');
       const [row] = await ds.query(`SELECT "title" FROM collection`);
       expect(row.title).toBe('Fresh');
       const [{ c }] = await ds.query(`SELECT COUNT(*) AS c FROM migrations`);

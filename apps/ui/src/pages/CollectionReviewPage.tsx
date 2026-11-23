@@ -1,5 +1,4 @@
 import { Trans, useLingui } from '@lingui/react/macro'
-import { ServarrAction } from '@maintainerr/contracts'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
@@ -111,11 +110,7 @@ const CollectionReviewPage = ({ id }: { id: string }) => {
               modalTitle={t`Confirm collection action`}
               confirmLabel={t`Confirm delete`}
               pendingLabel={t`Applying collection action...`}
-              disabled={
-                count === 0 ||
-                count > 500 ||
-                data.action === ServarrAction.DO_NOTHING
-              }
+              disabled={count === 0 || count > 500 || !data.approvalAllowed}
               errorMessage={t`Deletion failed. Reload the review before trying again.`}
               errorLogSummary="Review approval failed"
               errorContext="CollectionReviewPage.approve"
@@ -146,11 +141,11 @@ const CollectionReviewPage = ({ id }: { id: string }) => {
               </ul>
             </ConfirmActionButton>
           </div>
-          {data.action === ServarrAction.DO_NOTHING ? (
+          {!data.approvalAllowed ? (
             <p className="mb-4 text-amber-300">
               <Trans>
-                This collection is configured to Do nothing. Approval is
-                disabled until you configure its deletion action.
+                Approval requires whole-title Delete in Radarr or Sonarr with
+                list exclusions enabled. Other actions remain disabled.
               </Trans>
             </p>
           ) : null}

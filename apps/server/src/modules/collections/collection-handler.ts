@@ -15,6 +15,10 @@ import { Collection } from './entities/collection.entities';
 import { CollectionMedia } from './entities/collection_media.entities';
 import { ServarrAction } from './interfaces/collection.interface';
 import { RecentlyHandledMediaService } from './recently-handled-media.service';
+import {
+  allowsReviewDeletion,
+  ReviewDeletion,
+} from '../actions/review-deletion';
 
 /**
  * Outcome of handling a single collection media item.
@@ -72,9 +76,10 @@ export class CollectionHandler {
     collection: Collection,
     media: CollectionMedia,
     libraryReads?: ArrLookupCache,
-    reviewApproved = false,
+    reviewApproved?: ReviewDeletion,
   ): Promise<HandleMediaResult> {
     if (collection.reviewRequired && !reviewApproved) return 'failed';
+    if (reviewApproved && !allowsReviewDeletion(collection)) return 'failed';
     if (collection.arrAction === ServarrAction.DO_NOTHING) {
       return 'failed';
     }
@@ -134,12 +139,14 @@ export class CollectionHandler {
         collection,
         media,
         libraryReads,
+        reviewApproved,
       );
     } else if (library?.type == 'show' && collection.sonarrSettingsId) {
       actionHandled = await this.sonarrActionHandler.handleAction(
         collection,
         media,
         libraryReads,
+        reviewApproved,
       );
     } else if (library?.type == 'show' && collection.sportarrSettingsId) {
       actionHandled = await this.sportarrActionHandler.handleAction(

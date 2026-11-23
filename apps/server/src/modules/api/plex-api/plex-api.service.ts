@@ -724,7 +724,10 @@ export class PlexApiService {
    * answer in one response, and an unresolvable id is left out of it rather
    * than failing the batch.
    */
-  public async getMetadataBatch(keys: string[]): Promise<PlexMetadata[]> {
+  public async getMetadataBatch(
+    keys: string[],
+    useCache = true,
+  ): Promise<PlexMetadata[]> {
     if (keys.length === 0) {
       return [];
     }
@@ -732,6 +735,7 @@ export class PlexApiService {
     try {
       const response = await this.plexClient.query<PlexMetadataResponse>(
         `/library/metadata/${keys.join(',')}?includeGuids=1`,
+        useCache,
       );
       return response?.MediaContainer?.Metadata ?? [];
     } catch (error) {
@@ -1207,16 +1211,31 @@ export class PlexApiService {
    * failure returns [] so a session outage degrades to normal handling rather
    * than blocking the run.
    */
-  public async getActiveSessions(): Promise<PlexLibraryItem[]> {
+  public async getActiveSessions(strict = false): Promise<PlexLibraryItem[]> {
     try {
       const response = await this.plexClient.query<PlexLibraryResponse>(
         { uri: '/status/sessions' },
         false,
       );
+      if (
+        strict &&
+        (!response?.MediaContainer ||
+          (response.MediaContainer.Metadata === undefined
+            ? response.MediaContainer.size !== 0
+            : !Array.isArray(response.MediaContainer.Metadata) ||
+              response.MediaContainer.Metadata.some(
+                (item) =>
+                  !item.ratingKey ||
+                  (item.type === 'episode' && !item.grandparentRatingKey),
+              )))
+      ) {
+        throw new Error('Unread Plex active sessions');
+      }
       return (response?.MediaContainer?.Metadata as PlexLibraryItem[]) ?? [];
     } catch (error) {
       this.logger.error('Failed to fetch active Plex sessions.');
       this.logger.debug(error);
+      if (strict) throw error;
       return [];
     }
   }

@@ -212,6 +212,19 @@ describe('PlexApiService.getMetadata', () => {
 
     expect(await service.getActiveSessions()).toEqual([]);
   });
+  it('rejects an unavailable or malformed strict session response instead of reporting idle', async () => {
+    const query = jest.fn().mockRejectedValue(new Error('unavailable'));
+    Object.assign(service, { plexClient: { query } });
+    await expect(service.getActiveSessions(true)).rejects.toThrow(
+      'unavailable',
+    );
+    query.mockResolvedValue(undefined);
+    await expect(service.getActiveSessions(true)).rejects.toThrow(
+      'Unread Plex active sessions',
+    );
+    query.mockResolvedValue({ MediaContainer: { size: 0 } });
+    await expect(service.getActiveSessions(true)).resolves.toEqual([]);
+  });
 
   it('returns a confirmed empty list when a collection has no children', async () => {
     const queryAll = jest.fn().mockResolvedValue({
@@ -246,7 +259,21 @@ describe('PlexApiService.getMetadata', () => {
     (service as any).plexClient = { query };
 
     expect(await service.getMetadataBatch(['1', '2'])).toHaveLength(2);
-    expect(query).toHaveBeenCalledWith('/library/metadata/1,2?includeGuids=1');
+    expect(query).toHaveBeenCalledWith(
+      '/library/metadata/1,2?includeGuids=1',
+      true,
+    );
+  });
+  it('bypasses metadata cache for review target checks', async () => {
+    const query = jest
+      .fn()
+      .mockResolvedValue({ MediaContainer: { Metadata: [] } });
+    Object.assign(service, { plexClient: { query } });
+    await service.getMetadataBatch(['1'], false);
+    expect(query).toHaveBeenCalledWith(
+      '/library/metadata/1?includeGuids=1',
+      false,
+    );
   });
 
   it('reports no ids rather than failing the caller when a batch read fails', async () => {

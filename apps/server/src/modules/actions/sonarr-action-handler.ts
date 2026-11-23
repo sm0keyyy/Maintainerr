@@ -33,6 +33,7 @@ import {
   LeftoverCleanupInput,
   LeftoverFolderCleanupService,
 } from './leftover-folder-cleanup.service';
+import { allowsReviewDeletion, ReviewDeletion } from './review-deletion';
 
 /** Leftover-cleanup fences plus the resolved season folder, read pre-delete. */
 interface SonarrCleanupInputs {
@@ -63,11 +64,29 @@ export class SonarrActionHandler {
     collection: Collection,
     media: CollectionMedia,
     libraryReads?: ArrLookupCache,
+    approval?: ReviewDeletion,
   ): Promise<boolean> {
     const mediaServer = await this.mediaServerFactory.getService();
     const sonarrApiClient = await this.servarrApi.getSonarrApiClient(
       collection.sonarrSettingsId,
     );
+    if (approval) {
+      const target = approval.target;
+      if (
+        !allowsReviewDeletion(collection) ||
+        target.kind !== 'sonarr' ||
+        target.settingsId !== collection.sonarrSettingsId
+      )
+        return false;
+      const downloadIds = this.settings.downloadClientConfigured()
+        ? await sonarrApiClient.getDownloadIdsForSeries(target.id)
+        : [];
+      await approval.beforeDelete();
+      if (!(await sonarrApiClient.deleteShow(target.id, true, true)))
+        return false;
+      await this.downloadClient.removeDownloads(downloadIds);
+      return true;
+    }
 
     let mediaData: MediaItem | undefined = undefined;
 

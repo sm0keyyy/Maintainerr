@@ -648,6 +648,7 @@ describe('CollectionHandler', () => {
       collection,
       collectionMedia,
       undefined,
+      undefined,
     );
     expect(seerrApi.removeSeasonRequest).not.toHaveBeenCalled();
     expect(seerrApi.removeMediaByTmdbId).not.toHaveBeenCalled();

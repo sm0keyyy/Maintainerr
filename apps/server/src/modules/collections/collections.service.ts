@@ -25,6 +25,7 @@ import {
 import {
   BadGatewayException,
   Injectable,
+  ConflictException,
   NotFoundException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -71,6 +72,10 @@ import {
   CollectionMediaChange,
 } from './interfaces/collection-media.interface';
 import { ICollection } from './interfaces/collection.interface';
+import {
+  ExecutionLockService,
+  RULES_COLLECTIONS_EXECUTION_LOCK_KEY,
+} from '../tasks/execution-lock.service';
 
 interface addCollectionDbResponse {
   id: number;
@@ -191,6 +196,7 @@ export class CollectionsService {
     private readonly collectionPosterService: CollectionPosterService,
     private readonly overlayProcessor: OverlayProcessorService,
     private readonly servarrTagService: ServarrTagService,
+    private readonly executionLock: ExecutionLockService,
     private readonly logger: MaintainerrLogger,
   ) {
     logger.setContext(CollectionsService.name);
@@ -2314,6 +2320,11 @@ export class CollectionsService {
   async updateCollection(
     collection: ICollection,
   ): Promise<{ dbCollection?: ICollection } | undefined> {
+    const release = this.executionLock.tryAcquire(
+      RULES_COLLECTIONS_EXECUTION_LOCK_KEY,
+    );
+    if (!release)
+      throw new ConflictException('A collection or rule run is in progress');
     try {
       const mediaServer = await this.getMediaServer();
       const dbCollection = await this.collectionRepo.findOne({
@@ -2443,6 +2454,8 @@ export class CollectionsService {
         ECollectionLogType.COLLECTION,
       );
       return undefined;
+    } finally {
+      release();
     }
   }
 
@@ -2452,7 +2465,10 @@ export class CollectionsService {
         where: { id: collection.id },
       });
 
-      const response = await this.collectionRepo.save(collection);
+      const response = await this.collectionRepo.save({
+        ...collection,
+        reviewRequired: undefined,
+      });
 
       this.eventEmitter.emit(MaintainerrEvent.Collection_Updated, {
         collection: response,
@@ -2461,7 +2477,10 @@ export class CollectionsService {
 
       return response;
     } else {
-      const response = await this.collectionRepo.save(collection);
+      const response = await this.collectionRepo.save({
+        ...collection,
+        reviewRequired: true,
+      });
 
       this.eventEmitter.emit(MaintainerrEvent.Collection_Created, {
         collection: response,
@@ -3322,6 +3341,7 @@ export class CollectionsService {
           if (newColl?.id) {
             collection = await this.collectionRepo.save({
               ...collection,
+              reviewRequired: undefined,
               mediaServerId: newColl.id,
             });
             // Handle visibility settings (Plex-only feature)
@@ -3848,6 +3868,7 @@ export class CollectionsService {
           if (linkedElsewhere === true) {
             collection = await this.collectionRepo.save({
               ...collection,
+              reviewRequired: undefined,
               mediaServerId: null,
             });
           } else if (linkedElsewhere === false) {
@@ -3855,6 +3876,7 @@ export class CollectionsService {
               await mediaServer.deleteCollection(collection.mediaServerId);
               collection = await this.collectionRepo.save({
                 ...collection,
+                reviewRequired: undefined,
                 mediaServerId: null,
               });
             } catch (error) {

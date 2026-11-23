@@ -2,6 +2,7 @@ import { DataSource, EntitySchema } from 'typeorm';
 import { createMockLogger } from '../../../test/utils/data';
 import { CollectionsService } from './collections.service';
 import { CollectionMediaPendingDirection } from './entities/collection_media_rule_removal.entities';
+import { ExecutionLockService } from '../tasks/execution-lock.service';
 
 // The marker table as the migration builds it. Mirrored with an EntitySchema
 // rather than registering the real entity, whose ManyToOne would drag in the
@@ -87,6 +88,7 @@ describe('CollectionsService.markRuleRemoved (real SQLite)', () => {
       {} as any, // collectionPosterService
       {} as any, // overlayProcessor
       {} as any, // servarrTagService
+      new ExecutionLockService(),
       createMockLogger() as any,
     );
   });

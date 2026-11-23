@@ -2,8 +2,12 @@
 
 - Add a phone-friendly, biggest-first collection review with explicit selection,
   count/size confirmation, and API approval of only the selected members.
-- Review mode blocks scheduled and legacy manual handling. Eligibility is
-  rechecked on approval; recent watches and recent arr additions remain protected.
+- Require review for new and existing collections before workers start; ordinary
+  saves cannot overwrite the gate and settings changes share the approval lock.
+- Bind canonical arr targets, reject conflicting identities and duplicates, and
+  check all affected Plex copies. Repeat fresh watch/age/session checks at each
+  destructive boundary. Reject approvals unless whole-title Delete and import
+  exclusions are configured.
 - Add Plex rule property 55, `lastViewedAtByAnyUser`, backed by read-only per-user
   stored watch state as well as session history and the owner metadata date.
 - Add quarterly review-ready notifications and ntfy click-through URLs.

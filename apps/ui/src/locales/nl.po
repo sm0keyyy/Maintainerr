@@ -548,6 +548,10 @@ msgstr "Datumoverlays toepassen op posters in collectie"
 msgid "Applying collection action..."
 msgstr ""
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Approval requires whole-title Delete in Radarr or Sonarr with list exclusions enabled. Other actions remain disabled."
+msgstr ""
+
 #: src/components/Rules/RuleGroup/index.tsx
 #: src/components/Settings/ServiceCard.tsx
 msgid "Are you sure?"
@@ -4259,10 +4263,6 @@ msgstr "Er is een fout opgetreden bij het bijwerken van de Plex-authenticatie."
 #: src/components/Common/MediaActionModal.tsx
 msgid "They are removed from every collection they are currently in as well."
 msgstr "Ze worden ook verwijderd uit elke collectie waar ze zich momenteel in bevinden."
-
-#: src/pages/CollectionReviewPage.tsx
-msgid "This collection is configured to Do nothing. Approval is disabled until you configure its deletion action."
-msgstr ""
 
 #: src/components/Settings/Telemetry/index.tsx
 msgid "This is the exact report your server would send, stored only as anonymous counters."

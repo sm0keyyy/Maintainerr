@@ -546,6 +546,10 @@ msgstr "將日期覆蓋圖層套用至此收藏集的海報"
 msgid "Applying collection action..."
 msgstr ""
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Approval requires whole-title Delete in Radarr or Sonarr with list exclusions enabled. Other actions remain disabled."
+msgstr ""
+
 #: src/components/Rules/RuleGroup/index.tsx
 #: src/components/Settings/ServiceCard.tsx
 msgid "Are you sure?"
@@ -4257,10 +4261,6 @@ msgstr "更新 Plex 身分驗證時發生錯誤。"
 #: src/components/Common/MediaActionModal.tsx
 msgid "They are removed from every collection they are currently in as well."
 msgstr "這些項目也會從目前所屬的所有收藏集中移除。"
-
-#: src/pages/CollectionReviewPage.tsx
-msgid "This collection is configured to Do nothing. Approval is disabled until you configure its deletion action."
-msgstr ""
 
 #: src/components/Settings/Telemetry/index.tsx
 msgid "This is the exact report your server would send, stored only as anonymous counters."

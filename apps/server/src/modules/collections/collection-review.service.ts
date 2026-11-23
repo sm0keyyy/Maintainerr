@@ -35,6 +35,8 @@ import { CollectionHandler } from './collection-handler';
 import { Collection } from './entities/collection.entities';
 import { CollectionMedia } from './entities/collection_media.entities';
 import { CollectionsService } from './collections.service';
+import { PlexMapper } from '../api/media-server/plex/plex.mapper';
+import { allowsReviewDeletion, ReviewTarget } from '../actions/review-deletion';
 
 const REVIEW_WINDOW_MS = 365 * 86400000;
 
@@ -89,32 +91,153 @@ export class CollectionReviewService {
     }
   }
 
-  private async addedAt(
+  private async target(
     collection: Collection,
     row: CollectionMedia,
     item: MediaItem,
-  ): Promise<string> {
-    let date: string | undefined;
-    if (collection.type === 'movie' && collection.radarrSettingsId) {
-      const id = row.tmdbId ?? Number(item.providerIds.tmdb?.[0]);
-      if (!Number.isFinite(id) || id <= 0)
-        throw new Error('Missing Radarr identity');
-      const api = await this.servarr.getRadarrApiClient(
-        collection.radarrSettingsId,
-      );
-      date = (await api.getMovieByTmdbId(id))?.movieFile?.dateAdded;
-    } else if (collection.type === 'show' && collection.sonarrSettingsId) {
-      const id = row.tvdbId ?? Number(item.providerIds.tvdb?.[0]);
-      if (!Number.isFinite(id) || id <= 0)
-        throw new Error('Missing Sonarr identity');
-      const api = await this.servarr.getSonarrApiClient(
-        collection.sonarrSettingsId,
-      );
-      date = (await api.getSeriesByTvdbId(id))?.added;
+  ): Promise<ReviewTarget> {
+    const movie = collection.type === 'movie';
+    const providerId = Number(
+      (movie ? item.providerIds.tmdb : item.providerIds.tvdb)?.[0],
+    );
+    const cached = movie ? row.tmdbId : row.tvdbId;
+    if (
+      !Number.isSafeInteger(providerId) ||
+      providerId <= 0 ||
+      (cached != null && cached !== providerId)
+    )
+      throw new Error('Plex and membership identity disagree');
+    let id: number;
+    let path: string;
+    let date: string;
+    let settingsId: number;
+    if (movie && collection.radarrSettingsId) {
+      settingsId = collection.radarrSettingsId;
+      const api = await this.servarr.getRadarrApiClient(settingsId);
+      const entry = await api.getMovieByTmdbId(providerId);
+      if (!entry || entry.tmdbId !== providerId)
+        throw new Error('Radarr identity mismatch');
+      ({ id, path } = entry);
+      date = entry.movieFile?.dateAdded;
+    } else if (!movie && collection.sonarrSettingsId) {
+      settingsId = collection.sonarrSettingsId;
+      const api = await this.servarr.getSonarrApiClient(settingsId);
+      const entry = await api.getSeriesByTvdbId(providerId);
+      if (!entry || entry.tvdbId !== providerId)
+        throw new Error('Sonarr identity mismatch');
+      ({ id, path } = entry);
+      date = entry.added;
+    } else throw new Error('Missing review arr configuration');
+    if (
+      !Number.isSafeInteger(id) ||
+      id <= 0 ||
+      !path ||
+      !date ||
+      !Number.isFinite(new Date(date).getTime())
+    )
+      throw new Error('Unread arr target or age');
+    return {
+      kind: movie ? 'radarr' : 'sonarr',
+      settingsId,
+      id,
+      providerId,
+      path,
+      addedAt: new Date(date).toISOString(),
+    };
+  }
+
+  private async freshItems(ids: string[]): Promise<MediaItem[]> {
+    const metadata = await this.plex.getMetadataBatch(ids, false);
+    if (
+      metadata.length !== ids.length ||
+      ids.some((id) => !metadata.some((item) => item.ratingKey === id))
+    )
+      throw new Error('Incomplete Plex metadata read');
+    return metadata.map((item) => PlexMapper.metadataToMediaItem(item));
+  }
+
+  private async playing(): Promise<Set<string>> {
+    const sessions = await this.plex.getActiveSessions(true);
+    return new Set(
+      sessions.flatMap((session) =>
+        [
+          session.ratingKey,
+          session.parentRatingKey,
+          session.grandparentRatingKey,
+        ]
+          .filter((id) => id != null)
+          .map(String),
+      ),
+    );
+  }
+
+  private async validateTarget(
+    collection: Collection,
+    row: CollectionMedia,
+    bound: ReviewTarget,
+  ): Promise<void> {
+    const [selected] = await this.freshItems([row.mediaServerId]);
+    const fresh = await this.target(collection, row, selected);
+    if (
+      fresh.id !== bound.id ||
+      fresh.providerId !== bound.providerId ||
+      fresh.path !== bound.path ||
+      fresh.kind !== bound.kind ||
+      fresh.settingsId !== bound.settingsId
+    )
+      throw new Error('Canonical arr target changed');
+    const cutoff = Date.now() - REVIEW_WINDOW_MS;
+    if (new Date(fresh.addedAt).getTime() >= cutoff)
+      throw new Error('Target is too recent');
+    const type = collection.type === 'movie' ? 'movie' : 'show';
+    const ids = this.storedWatch.getItemIds(type);
+    if (!ids.includes(row.mediaServerId))
+      throw new Error('Selected Plex item disappeared');
+    const exclusions = await this.exclusions.find();
+    const cascade = buildExclusionCascadeSets(
+      exclusions.filter(
+        (exclusion) =>
+          exclusion.ruleGroupId == null ||
+          exclusion.ruleGroupId === collection.ruleGroup?.id,
+      ),
+    );
+    const affectedIds: string[] = [];
+    const folder = bound.path.replace(/[\\/]+$/, '');
+    for (let start = 0; start < ids.length; start += 100) {
+      for (const item of await this.freshItems(ids.slice(start, start + 100))) {
+        if (item.type !== type)
+          throw new Error('Unexpected Plex inventory type');
+        const providerIds =
+          bound.kind === 'radarr'
+            ? item.providerIds.tmdb
+            : item.providerIds.tvdb;
+        if (!item.path && !providerIds?.length)
+          throw new Error('Unread Plex inventory identity');
+        const sameProvider = providerIds?.includes(String(bound.providerId));
+        const samePath =
+          item.path === folder ||
+          item.path?.startsWith(`${folder}/`) ||
+          item.path?.startsWith(`${folder}\\`);
+        if (!sameProvider && !samePath) continue;
+        affectedIds.push(item.id);
+        if (isMediaItemExcluded(cascade, item))
+          throw new Error('Affected Plex item is excluded');
+        const watchers = await this.watchers(collection, item);
+        const lastWatched = Math.max(
+          item.lastViewedAt?.getTime() ?? 0,
+          ...watchers.map((watcher) =>
+            new Date(watcher.lastWatchedAt).getTime(),
+          ),
+        );
+        if (!Number.isFinite(lastWatched) || lastWatched >= cutoff)
+          throw new Error('Affected Plex item was watched recently');
+      }
     }
-    if (!date || !Number.isFinite(new Date(date).getTime()))
-      throw new Error('Missing arr age');
-    return new Date(date).toISOString();
+    if (!affectedIds.includes(row.mediaServerId))
+      throw new Error('Selected Plex item does not map to target');
+    const playing = await this.playing();
+    if (affectedIds.some((id) => playing.has(id)))
+      throw new Error('Affected Plex item is playing');
   }
 
   private async watchers(
@@ -130,7 +253,7 @@ export class CollectionReviewService {
       item.id,
       false,
       item.type,
-      collection.libraryId,
+      item.library?.id || collection.libraryId,
     );
     const users = await this.plex.getCorrectedUsers(false);
     for (const view of history) {
@@ -161,12 +284,13 @@ export class CollectionReviewService {
       collectionId: id,
       reviewRequired: collection.reviewRequired,
       action: collection.arrAction,
+      approvalAllowed: allowsReviewDeletion(collection),
       candidates: [],
       unavailableIds: [],
     };
     if (!collection.reviewRequired) return result;
     const server = await this.mediaServerFactory.getService();
-    const playing = await server.getActiveSessions();
+    const playing = await this.playing();
     const rows = await this.media.find({ where: { collectionId: id } });
     const exclusions = await this.exclusions.find();
     const cascade = buildExclusionCascadeSets(
@@ -180,7 +304,7 @@ export class CollectionReviewService {
     for (const row of rows) {
       if (row.ruleEvaluationFailed || playing.has(row.mediaServerId)) continue;
       try {
-        const item = await server.getMetadata(row.mediaServerId);
+        const [item] = await this.freshItems([row.mediaServerId]);
         if (!item || item.type !== collection.type)
           throw new Error('Unread collection member');
         if (isMediaItemExcluded(cascade, item)) continue;
@@ -194,7 +318,7 @@ export class CollectionReviewService {
         if (!Number.isFinite(lastWatchedMs))
           throw new Error('Invalid watch date');
         if (lastWatchedMs >= cutoff) continue;
-        const addedAt = await this.addedAt(collection, row, item);
+        const { addedAt } = await this.target(collection, row, item);
         if (new Date(addedAt).getTime() >= cutoff) continue;
         // Show metadata has no file size: sum the same leaf files as the
         // existing collection size resolver, never a season-level action.
@@ -267,19 +391,42 @@ export class CollectionReviewService {
         );
       }
       const collection = await this.collection(id);
+      if (!allowsReviewDeletion(collection))
+        throw new BadRequestException(
+          'Review deletion requires whole-title Delete with list exclusions',
+        );
       const rows = await this.media.find({ where: { collectionId: id } });
       const byId = new Map(rows.map((row) => [row.mediaServerId, row]));
       if (ids.some((itemId) => !byId.has(itemId)))
         throw new ConflictException('Collection membership changed');
+      const targets = new Map<string, ReviewTarget>();
+      const canonical = new Set<string>();
+      for (const itemId of ids) {
+        const row = byId.get(itemId)!;
+        const [item] = await this.freshItems([itemId]);
+        const target = await this.target(collection, row, item);
+        const key = `${target.kind}:${target.settingsId}:${target.id}`;
+        if (canonical.has(key))
+          throw new BadRequestException(
+            'Selection contains duplicate arr targets',
+          );
+        canonical.add(key);
+        await this.validateTarget(collection, row, target);
+        targets.set(itemId, target);
+      }
       const result: ReviewApprovalResult = { handledIds: [], failedIds: [] };
       const libraryReads = new ArrLookupCache();
       for (const itemId of ids) {
         try {
+          const target = targets.get(itemId)!;
+          const beforeDelete = () =>
+            this.validateTarget(collection, byId.get(itemId)!, target);
+          await beforeDelete();
           const outcome = await this.handler.handleMedia(
             collection,
             byId.get(itemId)!,
             libraryReads,
-            true,
+            { target, beforeDelete },
           );
           (outcome === 'failed' ? result.failedIds : result.handledIds).push(
             itemId,

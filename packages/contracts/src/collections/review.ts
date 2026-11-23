@@ -32,6 +32,7 @@ export interface CollectionReview {
   collectionId: number
   reviewRequired: boolean
   action: number
+  approvalAllowed: boolean
   candidates: ReviewCandidate[]
   unavailableIds: string[]
 }

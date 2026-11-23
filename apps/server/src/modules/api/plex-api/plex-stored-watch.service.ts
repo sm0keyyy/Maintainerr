@@ -11,6 +11,24 @@ const watchRowSchema = z.object({
 
 @Injectable()
 export class PlexStoredWatchService {
+  getItemIds(type: 'movie' | 'show'): string[] {
+    const path = process.env.PLEX_DATABASE_PATH;
+    if (!path)
+      throw new Error('PLEX_DATABASE_PATH is required for target validation');
+    const db = new DatabaseSync(path, { readOnly: true });
+    try {
+      db.exec('PRAGMA query_only = ON');
+      return db
+        .prepare(
+          'SELECT id FROM metadata_items WHERE metadata_type = ? AND deleted_at IS NULL ORDER BY id',
+        )
+        .all(type === 'movie' ? 1 : 2)
+        .map((row) => z.coerce.string().parse(row.id));
+    } finally {
+      db.close();
+    }
+  }
+
   getWatchers(itemId: string, type: MediaItemType): ReviewWatcher[] {
     const path = process.env.PLEX_DATABASE_PATH;
     if (!path)

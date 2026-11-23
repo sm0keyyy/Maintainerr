@@ -318,11 +318,13 @@ Missing something, or want to back an idea?
 # Fork review queue
 
 This fork adds a **Review** tab to each Plex movie or whole-show collection.
-Enable review mode there before configuring a destructive action. Once enabled,
-the timer and legacy single-item action cannot act on that collection. Nothing
-is selected initially. Select titles, press **Delete selected**, then confirm the
-count, total size and exact titles. The existing collection action runs only on
-those titles. A Do nothing collection remains inert.
+All new collections require review, and upgrading migrates every existing
+collection to review before scheduled workers start. Ordinary settings saves
+cannot disable that gate. Unsupported media types remain non-destructive.
+Nothing is selected initially. Select titles, press **Delete selected**, then
+confirm the count, total size and exact titles. Approval requires whole-title
+**Delete** in Radarr or Sonarr with **Add list exclusions** enabled; all other
+actions remain disabled.
 
 Review requires `PLEX_DATABASE_PATH` to point to the Plex library database.
 Mount its database directory read-only, including its WAL/SHM files, so the
@@ -352,9 +354,13 @@ API (no authentication; restrict access to trusted hosts):
 - `GET /api/collections/:id/review`: list eligible candidates, largest first,
   plus ids whose state could not be verified.
 - `POST /api/collections/:id/review/approve` with `{"ids":["123","456"]}`:
-  revalidate all selected ids under the shared lock, then run the configured
-  action on exactly those members. Maximum 500 distinct ids. Returns
-  `handledIds` and `failedIds`; partial failures are not successes.
+  validate the entire selection under the shared lock, then bind each canonical
+  arr target. Duplicate targets and conflicting cached identities reject the
+  selection. Every current Plex movie/show mapping to the target is checked,
+  including copies outside this collection. Fresh watch, age and strict active
+  session checks run again immediately before each arr deletion; a newly
+  protected target is skipped. Maximum 500 distinct ids. Returns `handledIds`
+  and `failedIds`; partial failures are not successes.
 - `POST /api/collections/:id/review/notify`: prepare and notify a review now.
 
 Keep the port Tailscale-only. The UI confirmation is not authentication.

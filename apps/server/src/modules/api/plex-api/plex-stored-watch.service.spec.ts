@@ -28,6 +28,8 @@ describe('Plex stored per-user watch state', () => {
   });
   it('includes another account stored date even with zero views and rolls shows up from current episodes', () => {
     const service = new PlexStoredWatchService();
+    expect(service.getItemIds('movie')).toEqual(['1']);
+    expect(service.getItemIds('show')).toEqual(['10']);
     expect(service.getWatchers('1', 'movie')).toEqual([
       {
         userId: '2',

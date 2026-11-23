@@ -33,6 +33,8 @@ import {
   CollectionMedia,
   CollectionMediaManualMembershipSource,
 } from './entities/collection_media.entities';
+import { ExecutionLockService } from '../tasks/execution-lock.service';
+import { CollectionReviewService } from './collection-review.service';
 
 describe('CollectionsService', () => {
   let service: CollectionsService;
@@ -53,6 +55,7 @@ describe('CollectionsService', () => {
   let servarrTagService: Mocked<ServarrTagService>;
   let eventEmitter: Mocked<EventEmitter2>;
   let logger: Mocked<MaintainerrLogger>;
+  let executionLock: Mocked<ExecutionLockService>;
 
   beforeEach(async () => {
     const { unit, unitRef } =
@@ -91,6 +94,8 @@ describe('CollectionsService', () => {
     overlayProcessor = unitRef.get(OverlayProcessorService);
     eventEmitter = unitRef.get(EventEmitter2);
     logger = unitRef.get(MaintainerrLogger);
+    executionLock = unitRef.get(ExecutionLockService);
+    executionLock.tryAcquire.mockReturnValue(jest.fn());
     metadataService.resolveIds.mockResolvedValue({
       tmdb: 1,
       type: 'movie',
@@ -143,6 +148,51 @@ describe('CollectionsService', () => {
       .mockResolvedValue(undefined);
   });
 
+  it('does not persist a stale review flag through ordinary saves', async () => {
+    const current = createCollection({ id: 7, reviewRequired: true });
+    collectionRepo.findOne.mockResolvedValue(current);
+    collectionRepo.save.mockResolvedValue(current);
+    await service.saveCollection({ ...current, reviewRequired: false });
+    expect(collectionRepo.save).toHaveBeenCalledWith(
+      expect.not.objectContaining({ reviewRequired: false }),
+    );
+  });
+  it('serializes a settings save with enabling review using the same lock', async () => {
+    const lock = new ExecutionLockService();
+    jest.spyOn(service, 'addLogRecord').mockResolvedValue(undefined);
+    executionLock.tryAcquire.mockImplementation((key) => lock.tryAcquire(key));
+    const current = createCollection({
+      id: 7,
+      reviewRequired: false,
+      type: 'movie',
+      mediaServerType: MediaServerType.PLEX,
+    });
+    let finish!: () => void;
+    const paused = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    collectionRepo.findOne.mockImplementation(async () => {
+      await paused;
+      return current;
+    });
+    collectionRepo.save.mockResolvedValue(current);
+    const pending = service.updateCollection(current);
+    const { unit: review, unitRef } = await TestBed.solitary(
+      CollectionReviewService,
+    ).compile();
+    unitRef
+      .get(ExecutionLockService)
+      .tryAcquire.mockImplementation((key) => lock.tryAcquire(key));
+    const reviewRepo = unitRef.get<Repository<Collection>>(
+      getRepositoryToken(Collection) as string,
+    );
+    reviewRepo.findOne.mockResolvedValue(current);
+    await expect(review.enable(7)).rejects.toThrow('in progress');
+    finish();
+    await pending;
+    await review.enable(7);
+    expect(reviewRepo.update).toHaveBeenCalledWith(7, { reviewRequired: true });
+  });
   describe('postponeCollectionMedia', () => {
     it('pushes the deadline out by whole days and normalises addDate to midnight', async () => {
       jest.useFakeTimers().setSystemTime(new Date(2026, 6, 1, 9, 0, 0));

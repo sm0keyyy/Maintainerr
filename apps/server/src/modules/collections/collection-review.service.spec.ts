@@ -23,7 +23,14 @@ describe('Collection review', () => {
   const old = '2020-01-01T00:00:00.000Z';
   const recent = new Date(Date.now() - 30 * 86400000).toISOString();
   const collection = Object.assign(
-    createCollection({ id: 7, type: 'movie', radarrSettingsId: 1 }),
+    createCollection({
+      id: 7,
+      type: 'movie',
+      radarrSettingsId: 1,
+      sonarrSettingsId: null,
+      sportarrSettingsId: null,
+      listExclusions: true,
+    }),
     { reviewRequired: true },
   );
   const rows = ['1', '2', '3', '4', '5'].map((mediaServerId) =>
@@ -60,9 +67,47 @@ describe('Collection review', () => {
     stored.getWatchers.mockReturnValue([
       { userId: '2', name: 'Other user', lastWatchedAt: old },
     ]);
+    stored.getItemIds.mockReturnValue(rows.map((row) => row.mediaServerId));
     plex = unitRef.get(PlexApiService);
     plex.getWatchHistory.mockResolvedValue([]);
     plex.getCorrectedUsers.mockResolvedValue([]);
+    plex.getActiveSessions.mockResolvedValue([]);
+    plex.getMetadataBatch.mockImplementation(async (ids) =>
+      ids.map((id) =>
+        createPlexMetadata({
+          ratingKey: id,
+          type: 'movie',
+          librarySectionID: 1,
+          Guid: [{ id: `tmdb://${id}` }],
+          addedAt: new Date(old).getTime() / 1000,
+          Media: [
+            {
+              id: 1,
+              duration: 1,
+              bitrate: 1,
+              width: 1,
+              height: 1,
+              aspectRatio: 1,
+              audioChannels: 1,
+              audioCodec: '',
+              videoCodec: '',
+              videoResolution: '',
+              container: '',
+              videoFrameRate: '',
+              videoProfile: '',
+              Part: [
+                {
+                  id: 1,
+                  container: '',
+                  size: Number(id) * 1000,
+                  file: `/movies/${id}/movie.mkv`,
+                },
+              ],
+            },
+          ],
+        }),
+      ),
+    );
     plex.getMetadata.mockResolvedValue(
       createPlexMetadata({
         Rating: [
@@ -85,7 +130,12 @@ describe('Collection review', () => {
       getActiveSessions: jest.fn().mockResolvedValue(new Set()),
     } as unknown as IMediaServerService; // Only the read boundary used by this fixture.
     unitRef.get(MediaServerFactory).getService.mockResolvedValue(mediaServer);
-    getMovie = jest.fn().mockResolvedValue({ movieFile: { dateAdded: old } });
+    getMovie = jest.fn().mockImplementation(async (id: number) => ({
+      id,
+      tmdbId: id,
+      path: `/movies/${id}`,
+      movieFile: { dateAdded: old },
+    }));
     const radarr = { getMovieByTmdbId: getMovie } as unknown as Awaited<
       ReturnType<ServarrService['getRadarrApiClient']>
     >; // Network client boundary.
@@ -131,6 +181,9 @@ describe('Collection review', () => {
         : [];
     });
     getMovie.mockImplementation(async (id: number) => ({
+      id,
+      tmdbId: id,
+      path: `/movies/${id}`,
       movieFile: { dateAdded: id === 2 ? recent : old },
     }));
     expect((await service.list(7)).candidates.map((item) => item.id)).toEqual([
@@ -138,6 +191,81 @@ describe('Collection review', () => {
       '4',
     ]);
     await expect(service.approve(7, ['1'])).rejects.toThrow();
+    expect(handler.handleMedia).not.toHaveBeenCalled();
+  });
+  it('fails closed when the strict Plex session read fails', async () => {
+    plex.getActiveSessions.mockRejectedValue(new Error('Plex unavailable'));
+    await expect(service.approve(7, ['2'])).rejects.toThrow();
+    expect(handler.handleMedia).not.toHaveBeenCalled();
+  });
+
+  it('rechecks a later target after an earlier action changes its watch state', async () => {
+    handler.handleMedia.mockImplementation(async () => {
+      stored.getWatchers.mockImplementation((id) =>
+        id === '4'
+          ? [{ userId: '2', name: 'Other user', lastWatchedAt: recent }]
+          : [],
+      );
+      return 'handled';
+    });
+    await expect(service.approve(7, ['2', '4'])).resolves.toEqual({
+      handledIds: ['2'],
+      failedIds: ['4'],
+    });
+    expect(handler.handleMedia).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    { arrAction: 4, listExclusions: true },
+    { arrAction: 0, listExclusions: false },
+  ])('refuses an unsafe collection action %j', async (settings) => {
+    const original = { ...collection };
+    Object.assign(collection, settings);
+    try {
+      await expect(service.approve(7, ['2'])).rejects.toThrow();
+      expect(handler.handleMedia).not.toHaveBeenCalled();
+    } finally {
+      Object.assign(collection, original);
+    }
+  });
+  it('rejects mismatched resolved arr identity before any action', async () => {
+    getMovie.mockResolvedValue({
+      id: 999,
+      tmdbId: 999,
+      path: '/movies/wrong',
+      movieFile: { dateAdded: old },
+    });
+    await expect(service.approve(7, ['2'])).rejects.toThrow();
+    expect(handler.handleMedia).not.toHaveBeenCalled();
+  });
+
+  it('rejects two selected ids resolving to one canonical arr target', async () => {
+    getMovie.mockImplementation(async (tmdbId: number) => ({
+      id: 1,
+      tmdbId,
+      path: '/movies/shared',
+      movieFile: { dateAdded: old },
+    }));
+    await expect(service.approve(7, ['2', '4'])).rejects.toThrow();
+    expect(handler.handleMedia).not.toHaveBeenCalled();
+  });
+  it('protects an unselected Plex copy mapped to the same physical arr target', async () => {
+    const original = plex.getMetadataBatch.getMockImplementation()!;
+    stored.getItemIds.mockReturnValue(['1', '2', '3', '4', '5', '99']);
+    plex.getMetadataBatch.mockImplementation(async (ids, useCache) => {
+      const metadata = await original(ids, useCache);
+      return metadata.map((item) =>
+        item.ratingKey === '99'
+          ? { ...item, Guid: [{ id: 'tmdb://2' }] }
+          : item,
+      );
+    });
+    stored.getWatchers.mockImplementation((id) =>
+      id === '99'
+        ? [{ userId: '2', name: 'Other user', lastWatchedAt: recent }]
+        : [],
+    );
+    await expect(service.approve(7, ['2'])).rejects.toThrow('watched recently');
     expect(handler.handleMedia).not.toHaveBeenCalled();
   });
 });

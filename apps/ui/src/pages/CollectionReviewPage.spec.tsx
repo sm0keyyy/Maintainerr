@@ -31,6 +31,7 @@ describe('Collection review selection', () => {
       collectionId: 7,
       reviewRequired: true,
       action: 0,
+      approvalAllowed: true,
       candidates,
       unavailableIds: [],
     })
@@ -86,6 +87,36 @@ describe('Collection review selection', () => {
     rerender(view())
     const box = await screen.findByRole('checkbox', { name: 'Delete Movie 2' })
     expect((box as HTMLInputElement).checked).toBe(false)
+    client.clear()
+  })
+  it('does not permit approval when whole-title delete with list exclusions is not configured', async () => {
+    vi.mocked(GetApiHandler).mockResolvedValue({
+      collectionId: 7,
+      reviewRequired: true,
+      approvalAllowed: false,
+      action: 1,
+      candidates,
+      unavailableIds: [],
+    })
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    render(
+      <QueryClientProvider client={client}>
+        <CollectionReviewPage />
+      </QueryClientProvider>,
+    )
+    fireEvent.click(
+      await screen.findByRole('checkbox', { name: 'Delete Movie 2' }),
+    )
+    expect(
+      (
+        screen.getByRole('button', {
+          name: 'Delete selected',
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true)
+    expect(PostApiHandler).not.toHaveBeenCalled()
     client.clear()
   })
 })

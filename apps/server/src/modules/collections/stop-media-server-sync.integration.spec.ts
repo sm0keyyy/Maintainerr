@@ -1,6 +1,7 @@
 import { DataSource, EntitySchema } from 'typeorm';
 import { createMockLogger } from '../../../test/utils/data';
 import { CollectionsService } from './collections.service';
+import { ExecutionLockService } from '../tasks/execution-lock.service';
 
 // Only the two tables the unlink touches, mirrored rather than registered for
 // the same reason the marker test mirrors its own: the real Collection drags in
@@ -86,6 +87,7 @@ describe('CollectionsService.stopMediaServerSync (real SQLite)', () => {
       {} as any, // collectionPosterService
       {} as any, // overlayProcessor
       {} as any, // servarrTagService
+      new ExecutionLockService(),
       createMockLogger() as any,
     );
 

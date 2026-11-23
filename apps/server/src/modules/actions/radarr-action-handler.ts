@@ -19,6 +19,7 @@ import {
   LeftoverCleanupInput,
   LeftoverFolderCleanupService,
 } from './leftover-folder-cleanup.service';
+import { allowsReviewDeletion, ReviewDeletion } from './review-deletion';
 
 @Injectable()
 export class RadarrActionHandler {
@@ -38,10 +39,28 @@ export class RadarrActionHandler {
     collection: Collection,
     media: CollectionMedia,
     libraryReads?: ArrLookupCache,
+    approval?: ReviewDeletion,
   ): Promise<boolean> {
     const radarrApiClient = await this.servarrApi.getRadarrApiClient(
       collection.radarrSettingsId,
     );
+    if (approval) {
+      const target = approval.target;
+      if (
+        !allowsReviewDeletion(collection) ||
+        target.kind !== 'radarr' ||
+        target.settingsId !== collection.radarrSettingsId
+      )
+        return false;
+      const downloadIds = this.settings.downloadClientConfigured()
+        ? await radarrApiClient.getDownloadIdsForMovie(target.id)
+        : [];
+      await approval.beforeDelete();
+      if (!(await radarrApiClient.deleteMovie(target.id, true, true)))
+        return false;
+      await this.downloadClient.removeDownloads(downloadIds);
+      return true;
+    }
 
     const lookupCandidates =
       await this.metadataService.resolveLookupCandidatesForService(

@@ -49,7 +49,7 @@ export class Collection {
   @Column({ default: 0 })
   arrAction: number;
 
-  @Column({ nullable: false, default: false })
+  @Column({ nullable: false, default: true })
   reviewRequired: boolean;
 
   @Column({ default: false })
