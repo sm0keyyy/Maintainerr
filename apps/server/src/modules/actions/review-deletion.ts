@@ -17,10 +17,15 @@ export interface ReviewDeletion {
   recordOutcome: (outcome: ReviewArrOutcome) => Promise<void>;
 }
 
+/**
+ * Approved review titles are deleted whole, through Radarr or Sonarr, without
+ * an import-list exclusion so a later Seerr request can bring them back (M10).
+ * The collection must say so too: Delete with list exclusions off.
+ */
 export const allowsReviewDeletion = (collection: Collection): boolean =>
   collection.reviewRequired === true &&
   collection.arrAction === ServarrAction.DELETE &&
-  collection.listExclusions === true &&
+  collection.listExclusions === false &&
   !collection.sportarrSettingsId &&
   ((collection.type === 'movie' &&
     !!collection.radarrSettingsId &&

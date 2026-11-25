@@ -986,6 +986,10 @@ msgstr "Radio de esquina"
 msgid "Could not backup the database"
 msgstr "No se pudo hacer una copia de seguridad de la base de datos"
 
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Could not cancel. It may already be deleting; reload."
+msgstr ""
+
 #: src/components/Rules/RuleGroup/AddModal/CollectionPosterPicker.tsx
 msgid "Could not clear the stored poster"
 msgstr "No se pudo borrar el cartel almacenado"
@@ -1245,6 +1249,10 @@ msgstr ""
 
 #: src/pages/CollectionReviewPage.tsx
 msgid "Deleted; cleanup failed"
+msgstr ""
+
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Deleting now"
 msgstr ""
 
 #: src/pages/CollectionReviewPage.tsx
@@ -2142,6 +2150,14 @@ msgstr "Tareas"
 msgid "Karma"
 msgstr "Karma"
 
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Keep"
+msgstr ""
+
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Keep {title}"
+msgstr ""
+
 #: src/components/Rules/RuleGroup/AddModal/index.tsx
 msgid "Keep in Maintainerr only"
 msgstr ""
@@ -2223,6 +2239,10 @@ msgstr "Déjelo sin configurar para usar la plantilla de póster predeterminada"
 #: src/components/Rules/RuleGroup/AddModal/index.tsx
 msgid "Leave unset to use the default title card template"
 msgstr "Déjelo sin configurar para usar la plantilla de tarjeta de título predeterminada"
+
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Leaving soon: deleted on {date} unless someone watches it"
+msgstr ""
 
 #: src/components/OverlayEditor/PropertiesPanel.tsx
 msgid "left"

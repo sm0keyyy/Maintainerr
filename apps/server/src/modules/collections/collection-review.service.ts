@@ -3,11 +3,8 @@ import {
   ECollectionLogType,
   MediaItem,
   MediaServerType,
+  ReviewApprovalItem,
   ReviewApprovalResult,
-  ReviewArrOutcome,
-  ReviewDeletionResult,
-  ReviewDeletionStatus,
-  ReviewTitleIdentity,
   ReviewCandidate,
   ReviewWatcher,
 } from '@maintainerr/contracts';
@@ -31,12 +28,14 @@ import {
   buildExclusionCascadeSets,
   isMediaItemExcluded,
 } from '../rules/helpers/exclusion-cascade.helper';
-import { ArrLookupCache } from '../rules/helpers/arr-lookup-cache';
+import {
+  LeavingSoonEntry,
+  ReviewLeavingSoonService,
+} from './review-leaving-soon.service';
 import {
   ExecutionLockService,
   RULES_COLLECTIONS_EXECUTION_LOCK_KEY,
 } from '../tasks/execution-lock.service';
-import { CollectionHandler } from './collection-handler';
 import { Collection } from './entities/collection.entities';
 import { CollectionMedia } from './entities/collection_media.entities';
 import { CollectionsService } from './collections.service';
@@ -58,7 +57,7 @@ export class CollectionReviewService {
     private readonly plex: PlexApiService,
     private readonly storedWatch: PlexStoredWatchService,
     private readonly servarr: ServarrService,
-    private readonly handler: CollectionHandler,
+    private readonly leavingSoon: ReviewLeavingSoonService,
     private readonly executionLock: ExecutionLockService,
     private readonly events: EventEmitter2,
     private readonly logger: MaintainerrLogger,
@@ -189,7 +188,13 @@ export class CollectionReviewService {
     return items;
   }
 
-  private async validateTarget(
+  /**
+   * Fails unless the bound arr target still maps to the selected Plex item, no
+   * affected Plex item is excluded, watched in the last year or playing, and
+   * the arr file is over a year old. The Leaving soon job runs it again right
+   * before the arr delete.
+   */
+  async validateTarget(
     collection: Collection,
     row: CollectionMedia,
     bound: ReviewTarget,
@@ -411,28 +416,31 @@ export class CollectionReviewService {
     return result;
   }
 
-  private async recordDeletion(
+  private async recordScheduled(
     collection: Collection,
-    outcome: ReviewDeletionResult,
-  ): Promise<boolean> {
-    const message = `Review deletion ${outcome.status}: ${JSON.stringify(outcome)}`;
+    item: ReviewApprovalItem,
+  ): Promise<void> {
+    const message = `Review approval scheduled: ${JSON.stringify(item)}`;
     this.logger.log(message);
     try {
       await this.collectionService.addLogRecord(
         collection,
         message,
         ECollectionLogType.MEDIA,
-        { type: 'review_deletion', data: outcome },
+        { type: 'review_deletion', data: item },
       );
-      return true;
     } catch {
       this.logger.error(
-        `Could not persist deletion audit; retained in application log: ${JSON.stringify(outcome)}`,
+        `Could not persist approval audit; retained in application log: ${JSON.stringify(item)}`,
       );
-      return false;
     }
   }
 
+  /**
+   * Approval never deletes. It binds each ticked title to its arr target, puts
+   * it in the Plex "Leaving soon" collection and records it as pending; the
+   * daily job deletes it at its date unless someone watches it first.
+   */
   async approve(id: number, ids: string[]): Promise<ReviewApprovalResult> {
     const release = this.executionLock.tryAcquire(
       RULES_COLLECTIONS_EXECUTION_LOCK_KEY,
@@ -456,14 +464,18 @@ export class CollectionReviewService {
       const collection = await this.collection(id);
       if (!allowsReviewDeletion(collection))
         throw new BadRequestException(
-          'Review deletion requires whole-title Delete with list exclusions',
+          'Review deletion requires whole-title Delete without list exclusions',
+        );
+      const active = await this.leavingSoon.activeIds(id);
+      if (ids.some((itemId) => active.has(itemId)))
+        throw new ConflictException(
+          'A selected title is already leaving soon. Reload the review.',
         );
       const rows = await this.media.find({ where: { collectionId: id } });
       const byId = new Map(rows.map((row) => [row.mediaServerId, row]));
       if (ids.some((itemId) => !byId.has(itemId)))
         throw new ConflictException('Collection membership changed');
-      const targets = new Map<string, ReviewTarget>();
-      const identities = new Map<string, ReviewTitleIdentity>();
+      const entries: LeavingSoonEntry[] = [];
       const canonical = new Set<string>();
       for (const itemId of ids) {
         const row = byId.get(itemId)!;
@@ -476,71 +488,37 @@ export class CollectionReviewService {
           );
         canonical.add(key);
         const plexIds = await this.validateTarget(collection, row, target);
-        identities.set(itemId, {
-          id: itemId,
+        entries.push({
+          mediaServerId: itemId,
           title: item.title,
           year: item.year ?? null,
           sizeBytes: review.candidates.find(
             (candidate) => candidate.id === itemId,
           )!.sizeBytes,
-          arrService: target.kind,
-          arrSettingsId: target.settingsId,
-          arrId: target.id,
           plexIds,
+          target,
         });
-        targets.set(itemId, target);
       }
+      const scheduled = await this.leavingSoon.schedule(collection, entries);
       const result: ReviewApprovalResult = { items: [] };
-      const libraryReads = new ArrLookupCache();
-      for (const itemId of ids) {
-        const identity = identities.get(itemId)!;
-        const target = targets.get(itemId)!;
-        const state: {
-          arr: ReviewArrOutcome;
-          recorded?: ReviewDeletionStatus;
-          auditFailed: boolean;
-        } = { arr: 'not-deleted', auditFailed: false };
-        const recordOutcome = async (status: ReviewArrOutcome) => {
-          state.arr = status;
-          state.auditFailed = !(await this.recordDeletion(collection, {
-            ...identity,
-            plexIds: [...identity.plexIds],
-            status,
-          }));
-          state.recorded = status;
+      for (const row of scheduled) {
+        const item: ReviewApprovalItem = {
+          id: row.mediaServerId,
+          title: row.title,
+          year: row.year ?? null,
+          sizeBytes: Number(row.sizeBytes),
+          arrService: row.arrService,
+          arrSettingsId: row.arrSettingsId,
+          arrId: row.arrId,
+          plexIds: [...row.plexIds],
+          providerId: row.providerId,
+          path: row.path,
+          status: 'scheduled',
+          at: new Date(row.approvedAt).toISOString(),
+          deleteAt: new Date(row.deleteAt).toISOString(),
         };
-        let cleanupFailed = false;
-        try {
-          const beforeDelete = async () => {
-            identity.plexIds = await this.validateTarget(
-              collection,
-              byId.get(itemId)!,
-              target,
-            );
-          };
-          await beforeDelete();
-          const outcome = await this.handler.handleMedia(
-            collection,
-            byId.get(itemId)!,
-            libraryReads,
-            { target, beforeDelete, recordOutcome },
-          );
-          cleanupFailed = state.arr === 'deleted' && outcome !== 'handled';
-        } catch {
-          cleanupFailed = state.arr === 'deleted';
-        }
-        const status: ReviewDeletionStatus =
-          state.arr === 'deleted' && (cleanupFailed || state.auditFailed)
-            ? 'deleted-with-cleanup-failure'
-            : state.arr;
-        const outcome: ReviewDeletionResult = {
-          ...identity,
-          plexIds: [...identity.plexIds],
-          status,
-        };
-        if (state.recorded !== status)
-          await this.recordDeletion(collection, outcome);
-        result.items.push(outcome);
+        await this.recordScheduled(collection, item);
+        result.items.push(item);
       }
       return result;
     } finally {

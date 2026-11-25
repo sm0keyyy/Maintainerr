@@ -986,6 +986,10 @@ msgstr "Rayon d'angle"
 msgid "Could not backup the database"
 msgstr "Impossible de sauvegarder la base de données"
 
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Could not cancel. It may already be deleting; reload."
+msgstr ""
+
 #: src/components/Rules/RuleGroup/AddModal/CollectionPosterPicker.tsx
 msgid "Could not clear the stored poster"
 msgstr "Impossible d'effacer l'affiche enregistrée"
@@ -1245,6 +1249,10 @@ msgstr ""
 
 #: src/pages/CollectionReviewPage.tsx
 msgid "Deleted; cleanup failed"
+msgstr ""
+
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Deleting now"
 msgstr ""
 
 #: src/pages/CollectionReviewPage.tsx
@@ -2142,6 +2150,14 @@ msgstr "Tâches"
 msgid "Karma"
 msgstr "Karma"
 
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Keep"
+msgstr ""
+
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Keep {title}"
+msgstr ""
+
 #: src/components/Rules/RuleGroup/AddModal/index.tsx
 msgid "Keep in Maintainerr only"
 msgstr "Conserver uniquement dans Maintainerr"
@@ -2223,6 +2239,10 @@ msgstr "Laissez non défini pour utiliser le modèle d'affiche par défaut"
 #: src/components/Rules/RuleGroup/AddModal/index.tsx
 msgid "Leave unset to use the default title card template"
 msgstr "Laissez non défini pour utiliser le modèle de carte de titre par défaut"
+
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Leaving soon: deleted on {date} unless someone watches it"
+msgstr ""
 
 #: src/components/OverlayEditor/PropertiesPanel.tsx
 msgid "left"

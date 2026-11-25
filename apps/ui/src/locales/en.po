@@ -986,6 +986,10 @@ msgstr "Corner Radius"
 msgid "Could not backup the database"
 msgstr "Could not backup the database"
 
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Could not cancel. It may already be deleting; reload."
+msgstr "Could not cancel. It may already be deleting; reload."
+
 #: src/components/Rules/RuleGroup/AddModal/CollectionPosterPicker.tsx
 msgid "Could not clear the stored poster"
 msgstr "Could not clear the stored poster"
@@ -1246,6 +1250,10 @@ msgstr "Deleted"
 #: src/pages/CollectionReviewPage.tsx
 msgid "Deleted; cleanup failed"
 msgstr "Deleted; cleanup failed"
+
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Deleting now"
+msgstr "Deleting now"
 
 #: src/pages/CollectionReviewPage.tsx
 msgid "Deletion failed. Reload the review before trying again."
@@ -2142,6 +2150,14 @@ msgstr "Jobs"
 msgid "Karma"
 msgstr "Karma"
 
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Keep"
+msgstr "Keep"
+
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Keep {title}"
+msgstr "Keep {title}"
+
 #: src/components/Rules/RuleGroup/AddModal/index.tsx
 msgid "Keep in Maintainerr only"
 msgstr "Keep in Maintainerr only"
@@ -2223,6 +2239,10 @@ msgstr "Leave unset to use the default poster template"
 #: src/components/Rules/RuleGroup/AddModal/index.tsx
 msgid "Leave unset to use the default title card template"
 msgstr "Leave unset to use the default title card template"
+
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Leaving soon: deleted on {date} unless someone watches it"
+msgstr "Leaving soon: deleted on {date} unless someone watches it"
 
 #: src/components/OverlayEditor/PropertiesPanel.tsx
 msgid "left"

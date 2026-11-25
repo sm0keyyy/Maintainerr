@@ -986,6 +986,10 @@ msgstr "Радиус углов"
 msgid "Could not backup the database"
 msgstr "Не удалось создать резервную копию базы данных"
 
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Could not cancel. It may already be deleting; reload."
+msgstr ""
+
 #: src/components/Rules/RuleGroup/AddModal/CollectionPosterPicker.tsx
 msgid "Could not clear the stored poster"
 msgstr "Не удалось очистить сохранённый постер"
@@ -1245,6 +1249,10 @@ msgstr ""
 
 #: src/pages/CollectionReviewPage.tsx
 msgid "Deleted; cleanup failed"
+msgstr ""
+
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Deleting now"
 msgstr ""
 
 #: src/pages/CollectionReviewPage.tsx
@@ -2142,6 +2150,14 @@ msgstr "Задачи"
 msgid "Karma"
 msgstr "Карма"
 
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Keep"
+msgstr ""
+
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Keep {title}"
+msgstr ""
+
 #: src/components/Rules/RuleGroup/AddModal/index.tsx
 msgid "Keep in Maintainerr only"
 msgstr "Хранить только в Maintainerr"
@@ -2223,6 +2239,10 @@ msgstr "Оставьте не заданным, чтобы использова�
 #: src/components/Rules/RuleGroup/AddModal/index.tsx
 msgid "Leave unset to use the default title card template"
 msgstr "Оставьте не заданным, чтобы использовать шаблон титульной карточки по умолчанию"
+
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Leaving soon: deleted on {date} unless someone watches it"
+msgstr ""
 
 #: src/components/OverlayEditor/PropertiesPanel.tsx
 msgid "left"

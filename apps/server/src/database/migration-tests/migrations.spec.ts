@@ -61,10 +61,14 @@ const byName = (cols: ColInfo[]): Record<string, ColInfo> =>
 
 describe('database migrations', () => {
   const all = loadMigrations();
+  // The last collection-table rebuild. Newer migrations add other tables.
+  const reviewIndex = all.findIndex((m) =>
+    m.file.endsWith('-RequireCollectionReview.ts'),
+  );
 
   it('requires review for every existing collection and every newly inserted collection', async () => {
     const ds = await makeDS(
-      all.slice(0, -1).map((migration) => migration.cls),
+      all.slice(0, reviewIndex).map((migration) => migration.cls),
     ).initialize();
     try {
       await ds.runMigrations();
@@ -73,7 +77,7 @@ describe('database migrations', () => {
       );
       const runner = ds.createQueryRunner();
       await runner.beforeMigration();
-      await new all[all.length - 1].cls().up(runner);
+      await new all[reviewIndex].cls().up(runner);
       await runner.afterMigration();
       await runner.release();
       await ds.query(
@@ -221,29 +225,65 @@ describe('database migrations', () => {
         notnull: 1,
         dflt_value: "'all'",
       });
+
+      // AddReviewPending: the Leaving soon queue. Every approval starts pending.
+      const pending = byName(await columns(ds, 'review_pending'));
+      expect(pending.status).toMatchObject({
+        type: 'varchar',
+        notnull: 1,
+        dflt_value: "'pending'",
+      });
+      expect(pending.deleteAt).toMatchObject({ type: 'datetime', notnull: 1 });
+      expect(pending.approvedAt).toMatchObject({
+        type: 'datetime',
+        notnull: 1,
+      });
+      expect(pending.resolvedAt).toMatchObject({
+        type: 'datetime',
+        notnull: 0,
+      });
+      expect(pending.sizeBytes).toMatchObject({ type: 'bigint', notnull: 1 });
+      expect(pending.collectionId).toMatchObject({
+        type: 'INTEGER',
+        notnull: 1,
+      });
+      const [fk] = await ds.query(`PRAGMA foreign_key_list('review_pending')`);
+      expect(fk).toMatchObject({
+        table: 'collection',
+        from: 'collectionId',
+        on_delete: 'CASCADE',
+      });
     } finally {
       await ds.destroy();
     }
   });
 
   it('emit the SQLite create-temporary-table rebuild (generated, not hand-waived)', () => {
-    const newest = all[all.length - 1];
-    const src = fs.readFileSync(path.join(MIGRATIONS_DIR, newest.file), 'utf8');
     // SQLite can't ALTER most columns in place, so `migration:generate` always
     // emits a full create-temporary-table / copy / drop / rename rebuild for the
     // changed tables. A hand-written ALTER shortcut lacks it - this is the
     // cheapest signal the migration was generated rather than authored. The
-    // newest migration adds a collection column, so it rebuilds that table.
-    expect(src).toContain('CREATE TABLE "temporary_collection"');
+    // review migration adds a collection column; the newest adds a table with
+    // a foreign key, which TypeORM also writes as a rebuild.
+    const source = (index: number) =>
+      fs.readFileSync(path.join(MIGRATIONS_DIR, all[index].file), 'utf8');
+    expect(source(reviewIndex)).toContain(
+      'CREATE TABLE "temporary_collection"',
+    );
+    expect(source(all.length - 1)).toContain(
+      'CREATE TABLE "temporary_review_pending"',
+    );
   });
 
   // The rebuild in (3) drops and recreates the tables, so its INSERT...SELECT is
   // the only thing carrying an existing install's rows across. Every other test
   // here migrates an empty DB, where a rebuild that copies nothing looks
   // identical to one that copies correctly.
-  it('carry existing collections and what references them through the newest rebuild', async () => {
-    const newest = all[all.length - 1];
-    const ds = await makeDS(all.slice(0, -1).map((m) => m.cls)).initialize();
+  it('carry existing collections and what references them through the newest collection rebuild', async () => {
+    const newest = all[reviewIndex];
+    const ds = await makeDS(
+      all.slice(0, reviewIndex).map((m) => m.cls),
+    ).initialize();
     try {
       await ds.runMigrations();
       await ds.query(
@@ -293,20 +333,24 @@ describe('database migrations', () => {
   // a migration is added.
   it('revert the newest migration cleanly (symmetric down)', async () => {
     const ds = await makeDS(all.map((m) => m.cls)).initialize();
+    const tables = async () =>
+      (await ds.query(`SELECT name FROM sqlite_master WHERE type='table'`)).map(
+        (t: { name: string }) => t.name,
+      );
     try {
       await ds.runMigrations();
-      expect(
-        byName(await columns(ds, 'collection')).reviewRequired.dflt_value,
-      ).toBe('1');
+      expect(await tables()).toContain('review_pending');
       await ds.query(
         `INSERT INTO collection ("libraryId", "title", "type", "overlayScope") VALUES ('2', 'Fresh', 'show', 'show_only')`,
       );
 
       await ds.undoLastMigration();
 
+      expect(await tables()).not.toContain('review_pending');
+      expect(await tables()).not.toContain('temporary_review_pending');
       expect(
         byName(await columns(ds, 'collection')).reviewRequired.dflt_value,
-      ).toBe('0');
+      ).toBe('1');
       const [row] = await ds.query(`SELECT "title" FROM collection`);
       expect(row.title).toBe('Fresh');
       const [{ c }] = await ds.query(`SELECT COUNT(*) AS c FROM migrations`);

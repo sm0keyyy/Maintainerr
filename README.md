@@ -321,10 +321,60 @@ This fork adds a **Review** tab to each Plex movie or whole-show collection.
 All new collections require review, and upgrading migrates every existing
 collection to review before scheduled workers start. Ordinary settings saves
 cannot disable that gate. Unsupported media types remain non-destructive.
-Nothing is selected initially. Select titles, press **Delete selected**, then
-confirm the count, total size and exact titles. Approval requires whole-title
-**Delete** in Radarr or Sonarr with **Add list exclusions** enabled; all other
-actions remain disabled.
+Nothing is selected initially. Select titles and confirm the count, total size
+and exact titles. Approval never deletes: it puts the titles in a Plex
+**Leaving soon** collection for 14 days (see below). Approval requires
+whole-title **Delete** in Radarr or Sonarr with **Add list exclusions** turned
+off, so a later Seerr request can bring a title back; all other actions remain
+disabled.
+
+## Leaving soon
+
+Each approved title goes into a Plex collection named `Leaving soon` in its
+library, promoted to Library recommended, the owner's Home and every shared
+user's Home, and is recorded as pending with a delete date 14 days out. The
+collection summary names the next removal date. If Plex refuses the collection,
+its promotion or any title, nothing in that approval is scheduled.
+
+A job runs daily at 04:30 (server timezone) under the rules and collections
+lock; it skips the day while a rule or collection run holds the lock.
+
+- A pending title is saved, and leaves Leaving soon, when any Plex account
+  finished, partly watched or played it since its approval: per-user stored
+  watch state and view history from the read-only Plex database, Plex session
+  history, and current sessions.
+- A title still pending at its date is checked again (identity, exclusions, a
+  365-day watch and age window, current sessions) and deleted through Radarr
+  (`DELETE /movie/{id}?deleteFiles=true&addImportExclusion=false`) or Sonarr
+  (`DELETE /series/{id}?deleteFiles=true&addImportListExclusion=false`). The
+  title leaves Radarr/Sonarr, so they never grab it on their own; there is no
+  import-list exclusion. Its Seerr media entry and requests are then cleared
+  (`DELETE /api/v1/media/{id}`) so it can be re-requested, and Plex rescans the
+  folder.
+- Each delete is audited in the collection log and the application log with
+  title, Plex ids, arr id, TMDB/TVDB id, path, bytes, time, arr status and the
+  Seerr outcome.
+- A due title whose watch state, sessions or final check cannot be read stays
+  pending and is retried the next day. An uncertain arr answer is final and is
+  never retried automatically.
+- Members of a review collection without a pending approval are never deleted;
+  scheduled collection workers still skip review collections.
+
+The 7-day hold comes from the Radarr and Sonarr Recycling Bin. Set it before the
+first approval, in each app under Settings > Media Management > File Management:
+
+- Recycling Bin: a folder inside the same Docker volume as the root folders
+  (for example `/data/recycle-bin/radarr` and `/data/recycle-bin/sonarr` when
+  the media share is mounted at `/data`), outside every Plex library folder, so
+  a delete is a rename on the same filesystem rather than a copy.
+- Recycling Bin Cleanup: `7` days.
+
+With an empty Recycling Bin path, Radarr and Sonarr delete files permanently.
+Plex should have **Empty trash automatically after every scan** on so the
+rescanned title leaves Plex and Seerr does not see it as available again.
+
+Select notification type `4096` (Leaving soon) on the ntfy agent for one daily
+summary of titles saved by a watch, deleted, not deleted, or waiting.
 
 Review requires `PLEX_DATABASE_PATH` to point to the Plex library database.
 Mount its database directory read-only, including its WAL/SHM files, so the
@@ -355,22 +405,26 @@ API (no authentication; restrict access to trusted hosts):
   plus ids whose state could not be verified.
 - `POST /api/collections/:id/review/approve` with `{"ids":["123","456"]}`:
   validate the entire selection under the shared lock, then bind each canonical
-  arr target. Duplicate targets and conflicting cached identities reject the
-  selection. Every current Plex movie/show mapping to the target is checked,
-  including copies outside this collection. Fresh watch, age and strict active
-  session checks run again immediately before each arr deletion; a newly
-  protected target is skipped. Maximum 500 distinct ids. Response `items` include
-  captured title/year/size, arr identity, affected Plex ids and one status:
-  `deleted`, `deleted-with-cleanup-failure`, `not-deleted`, or `uncertain`.
-  Inventory discovery finishes before final age/watch/session checks. Candidate
-  listing uses the same affected-copy watch protection as approval.
-  Approved DELETE requests have transport retries disabled. A network error,
-  HTTP 5xx or 429 leaves an uncertain outcome; only a new approval can attempt
-  deletion again, after full eligibility validation. The arr outcome is recorded
-  immediately after the request, before collection/request cleanup. A later
-  cleanup failure adds a separate audit entry without erasing confirmed deletion.
-  Review deletion never removes download-client torrents or their data.
+  arr target. Duplicate targets, conflicting cached identities and titles
+  already leaving soon reject the selection. Every current Plex movie/show
+  mapping to the target is checked, including copies outside this collection.
+  Maximum 500 distinct ids. Nothing is deleted: response `items` include
+  captured title/year/size, arr identity, affected Plex ids, status `scheduled`
+  and `deleteAt`. Each approval is audited in the collection log.
+  At the delete date the job repeats the fresh watch, age and strict session
+  checks immediately before each arr request. Approved DELETE requests have
+  transport retries disabled. A network error, HTTP 5xx or 429 leaves an
+  uncertain outcome. The arr outcome is recorded immediately after the request,
+  before collection/request cleanup. A later cleanup failure adds a separate
+  audit entry without erasing the confirmed deletion. Review deletion never
+  removes download-client torrents or their data.
 - `POST /api/collections/:id/review/notify`: prepare and notify a review now.
+- `GET /api/review/leaving-soon[?collectionId=1][&all=true]`: titles pending
+  or being deleted, soonest first; `all=true` adds saved, cancelled, deleted
+  and failed rows with their notes and Seerr outcome.
+- `POST /api/review/leaving-soon/:id/cancel`: pull a pending title back before
+  its date and remove it from Plex Leaving soon. Returns 409 once the job has
+  started deleting it or it is already resolved.
 
 Keep the port Tailscale-only. The UI confirmation is not authentication.
 Back up the application database before upgrading. Restore that backup for

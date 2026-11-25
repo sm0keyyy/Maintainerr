@@ -210,7 +210,8 @@ export class CollectionHandler {
 
     // The request goes with the files, when forced. Seerr otherwise reconciles
     // through its availability sync; Ombi never un-marks an available request.
-    if (freesDisk) {
+    // An approved review delete clears Seerr itself and audits the outcome.
+    if (freesDisk && !reviewApproved) {
       if (forceSeerr) {
         await this.removeRequests(
           'seerr',

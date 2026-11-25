@@ -173,4 +173,6 @@ export enum NotificationType {
   OVERLAY_REVERTED = 512,
   UPDATE_AVAILABLE = 1024,
   REVIEW_READY = 2048,
+  /** Daily Leaving soon result: titles saved by a watch, deleted, or waiting. */
+  REVIEW_LEAVING_SOON = 4096,
 }

@@ -177,7 +177,7 @@ export class RadarrApi extends ServarrApi<{ movieId: number }> {
 
   public deleteMovieForReview(movieId: number): Promise<ReviewArrOutcome> {
     return this.runReviewDelete(
-      `movie/${movieId}?deleteFiles=true&addImportExclusion=true`,
+      `movie/${movieId}?deleteFiles=true&addImportExclusion=false`,
     );
   }
 

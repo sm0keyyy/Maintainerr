@@ -763,6 +763,60 @@ describe('CollectionHandler', () => {
     expect(seerrApi.removeMediaByTmdbId).toHaveBeenCalledTimes(1);
   });
 
+  it('leaves Seerr to the Leaving soon job for an approved review delete', async () => {
+    const collection = createCollection({
+      arrAction: ServarrAction.DELETE,
+      forceSeerr: true,
+      forceOmbi: true,
+      type: 'movie',
+      reviewRequired: true,
+      listExclusions: false,
+      radarrSettingsId: 1,
+      sonarrSettingsId: null,
+      sportarrSettingsId: null,
+    });
+    const collectionMedia = createCollectionMedia(collection);
+    settings.seerrConfigured.mockReturnValue(true);
+    settings.ombiConfigured.mockReturnValue(true);
+    mediaServer.getLibraries.mockResolvedValue(
+      createMediaLibraries({
+        id: collection.libraryId.toString(),
+        type: 'movie',
+      }),
+    );
+    radarrActionHandler.handleAction.mockResolvedValue(true);
+    const approval = {
+      target: {
+        kind: 'radarr' as const,
+        settingsId: 1,
+        id: 42,
+        providerId: 603,
+        path: '/data/library/movies/x',
+        addedAt: '2020-01-01T00:00:00.000Z',
+      },
+      beforeDelete: jest.fn(),
+      recordOutcome: jest.fn(),
+    };
+
+    await expect(
+      collectionHandler.handleMedia(
+        collection,
+        collectionMedia,
+        undefined,
+        approval,
+      ),
+    ).resolves.toBe('handled');
+
+    expect(radarrActionHandler.handleAction).toHaveBeenCalledWith(
+      collection,
+      collectionMedia,
+      undefined,
+      approval,
+    );
+    expect(seerrApi.removeMediaByTmdbId).not.toHaveBeenCalled();
+    expect(ombiApi.removeMediaByTmdbId).not.toHaveBeenCalled();
+  });
+
   it('removes the Ombi request when forced, independently of Seerr', async () => {
     const collection = createCollection({
       arrAction: ServarrAction.DELETE,
