@@ -7,7 +7,10 @@ import {
   PlexStoredWatchService,
   StoredReviewState,
 } from '../api/plex-api/plex-stored-watch.service';
-import { SeerrApiService, SeerrRequest } from '../api/seerr-api/seerr-api.service';
+import {
+  SeerrApiService,
+  SeerrRequest,
+} from '../api/seerr-api/seerr-api.service';
 import { ServarrService } from '../api/servarr-api/servarr.service';
 import { Exclusion } from '../rules/entities/exclusion.entities';
 import { ExecutionLockService } from '../tasks/execution-lock.service';
@@ -151,7 +154,9 @@ describe('Collection review list', () => {
     plex.getMetadata.mockImplementation(async () => {
       await sleep(latency);
       return createPlexMetadata({
-        Rating: [{ image: 'imdb://image.rating', value: 7.1, type: 'audience' }],
+        Rating: [
+          { image: 'imdb://image.rating', value: 7.1, type: 'audience' },
+        ],
       });
     });
     getMovies = jest.fn(async () => {
@@ -181,9 +186,9 @@ describe('Collection review list', () => {
       return seerrWatchlist;
     });
     unitRef.get(ExecutionLockService).tryAcquire.mockReturnValue(jest.fn());
-    unitRef.get(CollectionsService).CollectionLogRecordForChild.mockResolvedValue(
-      undefined,
-    );
+    unitRef
+      .get(CollectionsService)
+      .CollectionLogRecordForChild.mockResolvedValue(undefined);
   });
 
   const listed = async () =>
@@ -208,7 +213,10 @@ describe('Collection review list', () => {
       group: null,
       is4k: false,
     });
-    expect(review.candidates[1]).toMatchObject({ imdbRating: 7.5, lowRated: false });
+    expect(review.candidates[1]).toMatchObject({
+      imdbRating: 7.5,
+      lowRated: false,
+    });
     expect(review.unavailableIds).toEqual([]);
   });
 
@@ -249,7 +257,12 @@ describe('Collection review list', () => {
       watchers: [{ userId: '9', name: 'friend', lastWatchedAt: twoYearsAgo }],
     });
     const review = await service.list(7);
-    expect(review.candidates.map((item) => item.id)).toEqual(['5', '4', '2', '1']);
+    expect(review.candidates.map((item) => item.id)).toEqual([
+      '5',
+      '4',
+      '2',
+      '1',
+    ]);
     expect(review.candidates[2]).toMatchObject({
       lastWatchedAt: twoYearsAgo,
       watchers: [{ name: 'friend', lastWatchedAt: twoYearsAgo }],
@@ -275,7 +288,13 @@ describe('Collection review list', () => {
       }),
     );
     exclusions.find.mockResolvedValue([
-      { id: 1, mediaServerId: '5', ruleGroupId: null, parent: '5', type: 'movie' },
+      {
+        id: 1,
+        mediaServerId: '5',
+        ruleGroupId: null,
+        parent: '5',
+        type: 'movie',
+      },
     ] as Exclusion[]);
     expect(await listed()).toEqual(['4', '3', '2', '1']);
   });
@@ -292,8 +311,14 @@ describe('Collection review list', () => {
     };
     const review = await service.list(7);
     const byId = new Map(review.candidates.map((item) => [item.id, item]));
-    expect(byId.get('1')!.group).toEqual({ id: 'tmdb:500', title: 'Saga Collection' });
-    expect(byId.get('4')!.group).toEqual({ id: 'tmdb:500', title: 'Saga Collection' });
+    expect(byId.get('1')!.group).toEqual({
+      id: 'tmdb:500',
+      title: 'Saga Collection',
+    });
+    expect(byId.get('4')!.group).toEqual({
+      id: 'tmdb:500',
+      title: 'Saga Collection',
+    });
     expect(byId.get('2')!.group).toBeNull();
     expect(review.candidates).toHaveLength(5);
   });
@@ -317,7 +342,10 @@ describe('Collection review list', () => {
       })),
     );
     const review = await service.list(7);
-    expect(review.candidates[0]).toMatchObject({ imdbRating: 7.1, lowRated: false });
+    expect(review.candidates[0]).toMatchObject({
+      imdbRating: 7.1,
+      lowRated: false,
+    });
   });
 
   it('answers 1,300 titles quickly with batched reads, even at 25 ms per call', async () => {
@@ -329,7 +357,7 @@ describe('Collection review list', () => {
     expect(review.candidates).toHaveLength(1300);
     expect(review.candidates[0].id).toBe('1300');
     // 13 Plex batches of 100, 4 at a time; one Radarr, Seerr and session read.
-    expect(plex.getMetadataBatch.mock.calls.length).toBe(13);
+    expect(plex.getMetadataBatch.mock.calls).toHaveLength(13);
     expect(getMovies).toHaveBeenCalledTimes(1);
     expect(getMovieByTmdbId).not.toHaveBeenCalled();
     expect(plex.getWatchHistory).not.toHaveBeenCalled();
@@ -341,11 +369,10 @@ describe('Collection review list', () => {
     const warm = performance.now() - again;
     // Inventory and Radarr come from the cache; watch state, sessions,
     // requests and watchlists are read again.
-    expect(plex.getMetadataBatch.mock.calls.length).toBe(13);
+    expect(plex.getMetadataBatch.mock.calls).toHaveLength(13);
     expect(stored.getReviewSnapshot).toHaveBeenCalledTimes(2);
     expect(seerr.getRequests).toHaveBeenCalledTimes(2);
     expect(warm).toBeLessThan(1000);
-    // eslint-disable-next-line no-console
     console.log(
       `review list, 1300 titles, 25 ms/call: cold ${cold.toFixed(0)} ms, warm ${warm.toFixed(0)} ms`,
     );

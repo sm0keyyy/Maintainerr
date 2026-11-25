@@ -222,9 +222,9 @@ const CollectionReviewPage = ({ id }: { id: string }) => {
           <p className="mb-4 text-zinc-300">
             <Trans>
               Biggest first, movie series together. Nothing is selected
-              automatically. Titles watched or added in the last year,
-              requested in the last year, on a watchlist, partly watched, or
-              kept forever are not listed.
+              automatically. Titles watched or added in the last year, requested
+              in the last year, on a watchlist, partly watched, or kept forever
+              are not listed.
             </Trans>
           </p>
           <div className="sticky top-0 z-10 mb-4 flex flex-wrap items-center gap-4 bg-zinc-900 py-2">

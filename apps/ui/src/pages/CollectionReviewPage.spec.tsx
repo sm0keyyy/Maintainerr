@@ -63,7 +63,9 @@ describe('Collection review selection', () => {
     expect(boxes.every((box) => !(box as HTMLInputElement).checked)).toBe(true)
     fireEvent.click(screen.getByRole('checkbox', { name: 'Select Movie 2' }))
     fireEvent.click(screen.getByRole('checkbox', { name: 'Select Movie 4' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Move to Leaving soon' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Move to Leaving soon' }),
+    )
     expect(PostApiHandler).not.toHaveBeenCalled()
     expect(
       screen.getByText(
@@ -136,7 +138,9 @@ describe('Collection review selection', () => {
         screen.getByRole('checkbox', { name: `Select Movie ${id}` }),
       )
     }
-    fireEvent.click(screen.getByRole('button', { name: 'Move to Leaving soon' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Move to Leaving soon' }),
+    )
     fireEvent.click(screen.getByRole('button', { name: 'Confirm move' }))
     expect(
       await screen.findByText(
@@ -157,14 +161,27 @@ describe('Collection review selection', () => {
     const series = { id: 'tmdb:500', title: 'Saga Collection' }
     vi.mocked(GetApiHandler).mockResolvedValue(
       review([
-        { ...candidates[0], id: 'a', title: 'Saga Part 2', group: series, is4k: true },
+        {
+          ...candidates[0],
+          id: 'a',
+          title: 'Saga Part 2',
+          group: series,
+          is4k: true,
+        },
         { ...candidates[0], id: 'b', title: 'Lonely Movie', group: null },
-        { ...candidates[0], id: 'c', title: 'Other One', group: { id: 'tmdb:9', title: 'Solo Saga' } },
+        {
+          ...candidates[0],
+          id: 'c',
+          title: 'Other One',
+          group: { id: 'tmdb:9', title: 'Solo Saga' },
+        },
         { ...candidates[0], id: 'd', title: 'Saga Part 1', group: series },
       ]),
     )
     const { client } = renderPage()
-    const heading = await screen.findByRole('heading', { name: 'Saga Collection' })
+    const heading = await screen.findByRole('heading', {
+      name: 'Saga Collection',
+    })
     const block = heading.closest('li')!
     const titles = Array.from(block.querySelectorAll('input')).map((box) =>
       box.getAttribute('aria-label'),
@@ -181,10 +198,15 @@ describe('Collection review selection', () => {
       'Select Lonely Movie',
       'Select Other One',
     ])
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Saga Part 1' }))
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: 'Select Saga Part 1' }),
+    )
     expect(
-      (screen.getByRole('checkbox', { name: 'Select Saga Part 2' }) as HTMLInputElement)
-        .checked,
+      (
+        screen.getByRole('checkbox', {
+          name: 'Select Saga Part 2',
+        }) as HTMLInputElement
+      ).checked,
     ).toBe(false)
     expect(screen.getByText(/Selected titles: 1, total size/)).toBeTruthy()
     client.clear()
@@ -208,7 +230,9 @@ describe('Collection review selection', () => {
       ),
     )
     await waitFor(() =>
-      expect(screen.queryByRole('checkbox', { name: 'Select Movie 3' })).toBeNull(),
+      expect(
+        screen.queryByRole('checkbox', { name: 'Select Movie 3' }),
+      ).toBeNull(),
     )
     expect(screen.getByText(/Selected titles: 0, total size/)).toBeTruthy()
     client.clear()

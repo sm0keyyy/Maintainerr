@@ -79,10 +79,12 @@ describe('Collection review', () => {
     // both. An unreadable title fails the whole pass, as one SQL read does.
     stored.getReviewSnapshot.mockImplementation((type) => ({
       states: new Map(
-        stored.getItemIds(type).map((id) => [
-          id,
-          { watchers: stored.getWatchers(id, type), inProgress: false },
-        ]),
+        stored
+          .getItemIds(type)
+          .map((id) => [
+            id,
+            { watchers: stored.getWatchers(id, type), inProgress: false },
+          ]),
       ),
       showSizes: new Map(),
     }));
@@ -144,9 +146,7 @@ describe('Collection review', () => {
       getMovies: jest.fn(async () =>
         Promise.all(rows.map((row) => getMovie(row.tmdbId))),
       ),
-    } as unknown as Awaited<
-      ReturnType<ServarrService['getRadarrApiClient']>
-    >; // Network client boundary.
+    } as unknown as Awaited<ReturnType<ServarrService['getRadarrApiClient']>>; // Network client boundary.
     unitRef.get(ServarrService).getRadarrApiClient.mockResolvedValue(radarr);
     unitRef.get(ExecutionLockService).tryAcquire.mockReturnValue(jest.fn());
   });

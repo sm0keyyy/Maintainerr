@@ -2,7 +2,6 @@ import {
   MediaItem,
   ReviewCandidate,
   ReviewGroup,
-  ReviewWatcher,
 } from '@maintainerr/contracts';
 import { PlexMapper } from '../api/media-server/plex/plex.mapper';
 import { StoredReviewState } from '../api/plex-api/plex-stored-watch.service';
@@ -87,7 +86,8 @@ export function indexInventory(
     const providers =
       (kind === 'radarr' ? item.providerIds.tmdb : item.providerIds.tvdb) ?? [];
     if (!item.path && providers.length === 0) index.unidentified = true;
-    for (const provider of new Set(providers)) add(index.byProvider, provider, item);
+    for (const provider of new Set(providers))
+      add(index.byProvider, provider, item);
     if (item.path) {
       // The item itself and every ancestor folder, so a target folder finds
       // the files beneath it in one lookup.
@@ -138,7 +138,11 @@ export function validImdbRating(value: unknown): number | null {
 
 export interface ReviewRowInput {
   type: 'movie' | 'show';
-  row: { mediaServerId: string; tmdbId?: number | null; tvdbId?: number | null };
+  row: {
+    mediaServerId: string;
+    tmdbId?: number | null;
+    tvdbId?: number | null;
+  };
   inventory: ReviewInventoryIndex;
   arr: Map<number, ReviewArrEntry>;
   states: Map<string, StoredReviewState>;
@@ -155,7 +159,9 @@ export function evaluateReviewRow(input: ReviewRowInput): ReviewRowOutcome {
   if (!item || item.type !== type || inventory.unidentified)
     return { kind: 'unavailable' };
   const movie = type === 'movie';
-  const providerId = Number((movie ? item.providerIds.tmdb : item.providerIds.tvdb)?.[0]);
+  const providerId = Number(
+    (movie ? item.providerIds.tmdb : item.providerIds.tvdb)?.[0],
+  );
   const cached = movie ? row.tmdbId : row.tvdbId;
   if (
     !Number.isSafeInteger(providerId) ||
@@ -199,7 +205,9 @@ export function evaluateReviewRow(input: ReviewRowInput): ReviewRowOutcome {
     for (const id of copy.providerIds.tmdb ?? [])
       if (Number(id) > 0) tmdbIds.add(Number(id));
   if (
-    [...tmdbIds].some((id) => protections.requested.has(`${seerrType}:${id}`)) ||
+    [...tmdbIds].some((id) =>
+      protections.requested.has(`${seerrType}:${id}`),
+    ) ||
     (!movie && protections.requestedTvdb.has(providerId))
   )
     return { kind: 'protected', reason: 'seerr-request' };
@@ -215,7 +223,10 @@ export function evaluateReviewRow(input: ReviewRowInput): ReviewRowOutcome {
     return { kind: 'protected', reason: 'watchlist' };
 
   const sizeBytes = movie
-    ? item.mediaSources.reduce((sum, source) => sum + (source.sizeBytes ?? 0), 0)
+    ? item.mediaSources.reduce(
+        (sum, source) => sum + (source.sizeBytes ?? 0),
+        0,
+      )
     : (input.showSizes.get(item.id) ?? 0);
   if (!Number.isFinite(sizeBytes) || sizeBytes <= 0)
     return { kind: 'unavailable' };
@@ -238,7 +249,11 @@ export function evaluateReviewRow(input: ReviewRowInput): ReviewRowOutcome {
         source.videoResolution?.toLowerCase() === '4k',
     ),
   };
-  return { kind: 'candidate', candidate, needsRating: target.imdbRating === null };
+  return {
+    kind: 'candidate',
+    candidate,
+    needsRating: target.imdbRating === null,
+  };
 }
 
 /** Runs `fn` over `items` with at most `limit` in flight. */

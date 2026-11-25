@@ -48,21 +48,32 @@ describe('Plex stored review snapshot', () => {
   });
 
   it('reads every movie: each account newest first, a resume point as in progress, and play history', () => {
-    const { states, showSizes } = new PlexStoredWatchService().getReviewSnapshot(
-      'movie',
-    );
+    const { states, showSizes } =
+      new PlexStoredWatchService().getReviewSnapshot('movie');
     expect(states.get('1')).toEqual({
       inProgress: false,
       watchers: [
-        { userId: '2', name: 'Other user', lastWatchedAt: '2026-09-21T14:13:20.000Z' },
-        { userId: '1', name: 'Owner', lastWatchedAt: '2023-11-14T22:13:20.000Z' },
+        {
+          userId: '2',
+          name: 'Other user',
+          lastWatchedAt: '2026-09-21T14:13:20.000Z',
+        },
+        {
+          userId: '1',
+          name: 'Owner',
+          lastWatchedAt: '2023-11-14T22:13:20.000Z',
+        },
       ],
     });
     expect(states.get('2')).toEqual({ inProgress: true, watchers: [] });
     expect(states.get('3')).toEqual({
       inProgress: false,
       watchers: [
-        { userId: '2', name: 'Other user', lastWatchedAt: '2026-11-18T11:06:40.000Z' },
+        {
+          userId: '2',
+          name: 'Other user',
+          lastWatchedAt: '2026-11-18T11:06:40.000Z',
+        },
       ],
     });
     expect(states.has('4')).toBe(false);
@@ -70,14 +81,21 @@ describe('Plex stored review snapshot', () => {
   });
 
   it('rolls whole shows up from current episodes, history and resume points, with file sizes', () => {
-    const { states, showSizes } = new PlexStoredWatchService().getReviewSnapshot(
-      'show',
-    );
+    const { states, showSizes } =
+      new PlexStoredWatchService().getReviewSnapshot('show');
     expect(states.get('10')).toEqual({
       inProgress: true,
       watchers: [
-        { userId: '2', name: 'Other user', lastWatchedAt: '2026-07-25T17:20:00.000Z' },
-        { userId: '1', name: 'Owner', lastWatchedAt: '2026-05-28T20:26:40.000Z' },
+        {
+          userId: '2',
+          name: 'Other user',
+          lastWatchedAt: '2026-07-25T17:20:00.000Z',
+        },
+        {
+          userId: '1',
+          name: 'Owner',
+          lastWatchedAt: '2026-05-28T20:26:40.000Z',
+        },
       ],
     });
     expect(showSizes.get('10')).toBe(3500);
