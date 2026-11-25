@@ -32,6 +32,14 @@ const review = (items: unknown[] = candidates) => ({
   unavailableIds: [],
 })
 
+// The page also reads the Leaving soon list; it is empty unless a test sets it.
+const mockReview = (body: unknown, leavingSoon: unknown[] = []) =>
+  vi
+    .mocked(GetApiHandler)
+    .mockImplementation(async (url: string) =>
+      url.startsWith('/review/leaving-soon') ? leavingSoon : body,
+    )
+
 const renderPage = () => {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -48,7 +56,7 @@ describe('Collection review selection', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     route.id = '7'
-    vi.mocked(GetApiHandler).mockResolvedValue(review())
+    mockReview(review())
     vi.mocked(PostApiHandler).mockResolvedValue({
       items: [
         { id: '2', title: 'Movie 2', status: 'scheduled' },
@@ -69,7 +77,7 @@ describe('Collection review selection', () => {
     expect(PostApiHandler).not.toHaveBeenCalled()
     expect(
       screen.getByText(
-        /Selected titles: 2, total size: 2.00 GB. These titles go to a 'Leaving soon' row for 14 days. Anyone watching one saves it. After that they're deleted, with 7 days to undo./,
+        /2 titles, 2.00 GB. They go to a 'Leaving soon' row in Plex for 14 days. Anyone watching one keeps it. The rest are deleted, with 7 days to undo./,
       ),
     ).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Confirm move' }))
@@ -101,7 +109,7 @@ describe('Collection review selection', () => {
     client.clear()
   })
   it('does not permit approval when whole-title delete with list exclusions is not configured', async () => {
-    vi.mocked(GetApiHandler).mockResolvedValue({
+    mockReview({
       ...review(),
       approvalAllowed: false,
       action: 1,
@@ -144,7 +152,7 @@ describe('Collection review selection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Confirm move' }))
     expect(
       await screen.findByText(
-        `Movie 5: Leaving ${new Date(deleteAt).toLocaleDateString('en')}`,
+        `Movie 5: Leaving soon until ${new Date(deleteAt).toLocaleDateString('en')}; watching it keeps it`,
       ),
     ).toBeTruthy()
     expect(screen.getByText('Movie 4: Deleted; cleanup failed')).toBeTruthy()
@@ -157,9 +165,37 @@ describe('Collection review selection', () => {
     expect(screen.getByText('Movie 1: Deleted')).toBeTruthy()
     client.clear()
   })
+  it('shows a pending title as leaving soon beside its row and blocks ticking it again', async () => {
+    const deleteAt = '2026-12-08T09:00:00.000Z'
+    mockReview(review(), [
+      {
+        id: 11,
+        collectionId: 7,
+        mediaServerId: '3',
+        title: 'Movie 3',
+        status: 'pending',
+        deleteAt,
+      },
+    ])
+    const { client } = renderPage()
+    expect(
+      await screen.findByText(
+        `Leaving soon: deleted on ${new Date(deleteAt).toLocaleDateString('en')} unless someone watches it`,
+      ),
+    ).toBeTruthy()
+    expect(
+      (
+        screen.getByRole('checkbox', {
+          name: 'Select Movie 3',
+        }) as HTMLInputElement
+      ).disabled,
+    ).toBe(true)
+    expect(screen.getByRole('button', { name: 'Keep Movie 3' })).toBeTruthy()
+    client.clear()
+  })
   it('shows movies of one series together under the series name, each ticked on its own, with 4K marked', async () => {
     const series = { id: 'tmdb:500', title: 'Saga Collection' }
-    vi.mocked(GetApiHandler).mockResolvedValue(
+    mockReview(
       review([
         {
           ...candidates[0],
@@ -217,7 +253,7 @@ describe('Collection review selection', () => {
     fireEvent.click(
       await screen.findByRole('checkbox', { name: 'Select Movie 3' }),
     )
-    vi.mocked(GetApiHandler).mockResolvedValue(
+    mockReview(
       review(candidates.filter((item) => item.id !== '3')),
     )
     fireEvent.click(
@@ -238,7 +274,7 @@ describe('Collection review selection', () => {
     client.clear()
   })
   it('renders a long list in pages', async () => {
-    vi.mocked(GetApiHandler).mockResolvedValue(
+    mockReview(
       review(
         Array.from({ length: 130 }, (_, at) => ({
           ...candidates[0],

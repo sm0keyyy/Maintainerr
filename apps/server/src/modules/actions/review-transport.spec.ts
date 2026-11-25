@@ -77,7 +77,7 @@ for (const kind of ['radarr', 'sonarr'] as const) {
         const collection = createCollection({
           reviewRequired: true,
           arrAction: ServarrAction.DELETE,
-          listExclusions: true,
+          listExclusions: false,
           type: kind === 'radarr' ? 'movie' : 'show',
           radarrSettingsId: kind === 'radarr' ? 1 : null,
           sonarrSettingsId: kind === 'sonarr' ? 1 : null,
@@ -104,6 +104,14 @@ for (const kind of ['radarr', 'sonarr'] as const) {
         await jest.runAllTimersAsync();
         await operation;
         expect(attempts).toHaveLength(1);
+        // Files go with the title; no import-list exclusion, so a later Seerr
+        // request can bring it back.
+        expect(attempts[0].method).toBe('delete');
+        expect(attempts[0].url).toBe(
+          kind === 'radarr'
+            ? '/movie/42?deleteFiles=true&addImportExclusion=false'
+            : '/series/42?deleteFiles=true&addImportListExclusion=false',
+        );
         expect(attempts[0].httpRetry?.retries).toBe(0);
         expect(recordOutcome).toHaveBeenCalledWith(expected);
       },

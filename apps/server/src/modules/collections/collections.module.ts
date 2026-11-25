@@ -25,6 +25,11 @@ import { CollectionMedia } from './entities/collection_media.entities';
 import { CollectionMediaRuleRemoval } from './entities/collection_media_rule_removal.entities';
 import { RecentlyHandledMediaService } from './recently-handled-media.service';
 import { CollectionReviewService } from './collection-review.service';
+import { ReviewPending } from './entities/review-pending.entities';
+import { ReviewDeletionJobService } from './review-deletion-job.service';
+import { ReviewLeavingSoonController } from './review-leaving-soon.controller';
+import { ReviewLeavingSoonService } from './review-leaving-soon.service';
+import { ReviewWatchActivityService } from './review-watch-activity.service';
 
 @Module({
   imports: [
@@ -38,6 +43,7 @@ import { CollectionReviewService } from './collection-review.service';
       CollectionLog,
       RuleGroup,
       Exclusion,
+      ReviewPending,
     ]),
     SeerrApiModule,
     OmbiApiModule,
@@ -51,13 +57,16 @@ import { CollectionReviewService } from './collection-review.service';
   providers: [
     CollectionsService,
     CollectionReviewService,
+    ReviewLeavingSoonService,
+    ReviewWatchActivityService,
+    ReviewDeletionJobService,
     CollectionWorkerService,
     CollectionLogCleanerService,
     CollectionHandler,
     CollectionPosterService,
     RecentlyHandledMediaService,
   ],
-  controllers: [CollectionsController],
+  controllers: [CollectionsController, ReviewLeavingSoonController],
   exports: [
     CollectionsService,
     CollectionPosterService,

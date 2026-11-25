@@ -393,7 +393,7 @@ export class SonarrApi extends ServarrApi<{
 
   public deleteShowForReview(seriesId: number): Promise<ReviewArrOutcome> {
     return this.runReviewDelete(
-      `series/${seriesId}?deleteFiles=true&addImportListExclusion=true`,
+      `series/${seriesId}?deleteFiles=true&addImportListExclusion=false`,
     );
   }
 

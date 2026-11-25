@@ -156,6 +156,10 @@ msgstr "{count, plural, other {# 秒}}"
 msgid "{count, plural, one {# year} other {# years}}"
 msgstr "{count, plural, other {# 年}}"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "{count} titles, {size}. They go to a 'Leaving soon' row in Plex for 14 days. Anyone watching one keeps it. The rest are deleted, with 7 days to undo."
+msgstr ""
+
 #: src/components/Settings/About/Releases/index.tsx
 msgid "{daysAgo, plural, one {# day ago} other {# days ago}}"
 msgstr "{daysAgo, plural, other {# 天前}}"
@@ -543,7 +547,7 @@ msgid "Apply date overlays to posters in this collection"
 msgstr "將日期覆蓋圖層套用至此收藏集的海報"
 
 #: src/pages/CollectionReviewPage.tsx
-msgid "Approval requires whole-title Delete in Radarr or Sonarr with list exclusions enabled. Other actions remain disabled."
+msgid "Approval requires whole-title Delete in Radarr or Sonarr without list exclusions. Other actions remain disabled."
 msgstr ""
 
 #: src/components/Rules/RuleGroup/index.tsx
@@ -976,6 +980,10 @@ msgstr "圓角半徑"
 msgid "Could not backup the database"
 msgstr "無法備份資料庫"
 
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Could not cancel. It may already be deleting; reload."
+msgstr ""
+
 #: src/components/Rules/RuleGroup/AddModal/CollectionPosterPicker.tsx
 msgid "Could not clear the stored poster"
 msgstr "無法清除已儲存的海報"
@@ -1235,6 +1243,10 @@ msgstr ""
 
 #: src/pages/CollectionReviewPage.tsx
 msgid "Deleted; cleanup failed"
+msgstr ""
+
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Deleting now"
 msgstr ""
 
 #: src/components/Collection/CollectionDetail/CollectionInfo/index.tsx
@@ -2128,6 +2140,14 @@ msgstr "作業"
 msgid "Karma"
 msgstr "Karma 評分"
 
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Keep"
+msgstr ""
+
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Keep {title}"
+msgstr ""
+
 #: src/pages/CollectionReviewPage.tsx
 msgid "Keep {title} forever"
 msgstr ""
@@ -2219,11 +2239,15 @@ msgid "Leave unset to use the default title card template"
 msgstr "不設定則使用預設標題卡範本"
 
 #: src/pages/CollectionReviewPage.tsx
-msgid "Leaving {date}"
+msgid "Leaving soon until {date}; watching it keeps it"
 msgstr ""
 
 #: src/pages/CollectionReviewPage.tsx
-msgid "Leaving soon"
+msgid "Leaving soon; watching it keeps it"
+msgstr ""
+
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Leaving soon: deleted on {date} unless someone watches it"
 msgstr ""
 
 #: src/components/OverlayEditor/PropertiesPanel.tsx
@@ -3686,10 +3710,6 @@ msgstr "已選取的分頁"
 
 #: src/pages/CollectionReviewPage.tsx
 msgid "Selected titles: {count}, total size: {size}"
-msgstr ""
-
-#: src/pages/CollectionReviewPage.tsx
-msgid "Selected titles: {count}, total size: {size}. These titles go to a 'Leaving soon' row for 14 days. Anyone watching one saves it. After that they're deleted, with 7 days to undo."
 msgstr ""
 
 #: src/components/Settings/Emby/index.tsx

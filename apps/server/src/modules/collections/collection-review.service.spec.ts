@@ -5,7 +5,11 @@ import { Exclusion } from '../rules/entities/exclusion.entities';
 import { CollectionReviewService } from './collection-review.service';
 import { Collection } from './entities/collection.entities';
 import { CollectionMedia } from './entities/collection_media.entities';
-import { CollectionHandler } from './collection-handler';
+import { ReviewPending } from './entities/review-pending.entities';
+import {
+  LeavingSoonEntry,
+  ReviewLeavingSoonService,
+} from './review-leaving-soon.service';
 import { PlexApiService } from '../api/plex-api/plex-api.service';
 import { PlexStoredWatchService } from '../api/plex-api/plex-stored-watch.service';
 import { ServarrService } from '../api/servarr-api/servarr.service';
@@ -27,7 +31,7 @@ describe('Collection review', () => {
       radarrSettingsId: 1,
       sonarrSettingsId: null,
       sportarrSettingsId: null,
-      listExclusions: true,
+      listExclusions: false,
     }),
     { reviewRequired: true },
   );
@@ -39,7 +43,7 @@ describe('Collection review', () => {
     }),
   );
   let service: CollectionReviewService;
-  let handler: Mocked<CollectionHandler>;
+  let leavingSoon: Mocked<ReviewLeavingSoonService>;
   let stored: Mocked<PlexStoredWatchService>;
   let plex: Mocked<PlexApiService>;
   let getMovie: jest.Mock;
@@ -61,13 +65,27 @@ describe('Collection review', () => {
     unitRef
       .get<Repository<Exclusion>>(getRepositoryToken(Exclusion) as string)
       .find.mockResolvedValue([]);
-    handler = unitRef.get(CollectionHandler);
-    handler.handleMedia.mockImplementation(
-      async (_collection, _row, _reads, approval) => {
-        await approval!.beforeDelete();
-        await approval!.recordOutcome('deleted');
-        return 'handled';
-      },
+    leavingSoon = unitRef.get(ReviewLeavingSoonService);
+    leavingSoon.activeIds.mockResolvedValue(new Set());
+    leavingSoon.schedule.mockImplementation(
+      async (_collection, entries: LeavingSoonEntry[]) =>
+        entries.map((entry, index) =>
+          Object.assign(new ReviewPending(), {
+            id: index + 1,
+            mediaServerId: entry.mediaServerId,
+            title: entry.title,
+            year: entry.year,
+            sizeBytes: entry.sizeBytes,
+            plexIds: entry.plexIds,
+            arrService: entry.target.kind,
+            arrSettingsId: entry.target.settingsId,
+            arrId: entry.target.id,
+            providerId: entry.target.providerId,
+            path: entry.target.path,
+            approvedAt: new Date('2026-11-24T12:00:00Z'),
+            deleteAt: new Date('2026-12-08T12:00:00Z'),
+          }),
+        ),
     );
     stored = unitRef.get(PlexStoredWatchService);
     stored.getWatchers.mockReturnValue([
@@ -169,19 +187,55 @@ describe('Collection review', () => {
       watchers: [{ userId: '2', name: 'Other user', lastWatchedAt: old }],
     });
   });
-  it('approves exactly two of five and rejects an out-of-collection selection before any action', async () => {
-    await expect(service.approve(7, ['2', '4'])).resolves.toMatchObject({
+  it('schedules exactly two of five into Leaving soon and deletes nothing', async () => {
+    await expect(service.approve(7, ['2', '4'])).resolves.toEqual({
       items: [
-        { id: '2', status: 'deleted' },
-        { id: '4', status: 'deleted' },
+        expect.objectContaining({
+          id: '2',
+          status: 'scheduled',
+          arrId: 2,
+          sizeBytes: 2000,
+          plexIds: ['2'],
+          deleteAt: '2026-12-08T12:00:00.000Z',
+        }),
+        expect.objectContaining({ id: '4', status: 'scheduled' }),
       ],
     });
-    expect(
-      handler.handleMedia.mock.calls.map((call) => call[1].mediaServerId),
-    ).toEqual(['2', '4']);
-    handler.handleMedia.mockClear();
+    expect(leavingSoon.schedule).toHaveBeenCalledTimes(1);
+    const [scheduledCollection, entries] = leavingSoon.schedule.mock.calls[0];
+    expect(scheduledCollection).toBe(collection);
+    expect(entries.map((entry) => [entry.mediaServerId, entry.target])).toEqual(
+      ['2', '4'].map((id) => [
+        id,
+        {
+          kind: 'radarr',
+          settingsId: 1,
+          id: Number(id),
+          providerId: Number(id),
+          path: `/movies/${id}`,
+          addedAt: old,
+        },
+      ]),
+    );
+    expect(collectionService.addLogRecord).toHaveBeenCalledWith(
+      collection,
+      expect.stringContaining('scheduled'),
+      expect.anything(),
+      expect.objectContaining({
+        type: 'review_deletion',
+        data: expect.objectContaining({ id: '2', status: 'scheduled' }),
+      }),
+    );
+    leavingSoon.schedule.mockClear();
     await expect(service.approve(7, ['1', 'unknown'])).rejects.toThrow();
-    expect(handler.handleMedia).not.toHaveBeenCalled();
+    expect(leavingSoon.schedule).not.toHaveBeenCalled();
+  });
+  it('refuses a title that is already leaving soon', async () => {
+    leavingSoon.activeIds.mockResolvedValue(new Set(['4']));
+    await expect(service.approve(7, ['2', '4'])).rejects.toThrow(
+      'already leaving soon',
+    );
+    expect(leavingSoon.schedule).not.toHaveBeenCalled();
   });
   it('never admits another account recent stored view, a recent file, or an unread watch state', async () => {
     stored.getWatchers.mockImplementation((id: string) => {
@@ -207,49 +261,28 @@ describe('Collection review', () => {
     });
     await expect(service.list(7)).rejects.toThrow();
     await expect(service.approve(7, ['4'])).rejects.toThrow();
-    expect(handler.handleMedia).not.toHaveBeenCalled();
+    expect(leavingSoon.schedule).not.toHaveBeenCalled();
   });
   it('fails closed when the strict Plex session read fails', async () => {
     plex.getActiveSessions.mockRejectedValue(new Error('Plex unavailable'));
     await expect(service.approve(7, ['2'])).rejects.toThrow();
-    expect(handler.handleMedia).not.toHaveBeenCalled();
-  });
-
-  it('rechecks a later target after an earlier action changes its watch state', async () => {
-    handler.handleMedia.mockImplementation(
-      async (_collection, _row, _reads, approval) => {
-        await approval!.recordOutcome('deleted');
-        stored.getWatchers.mockImplementation((id) =>
-          id === '4'
-            ? [{ userId: '2', name: 'Other user', lastWatchedAt: recent }]
-            : [],
-        );
-        return 'handled';
-      },
-    );
-    await expect(service.approve(7, ['2', '4'])).resolves.toMatchObject({
-      items: [
-        { id: '2', status: 'deleted' },
-        { id: '4', status: 'not-deleted' },
-      ],
-    });
-    expect(handler.handleMedia).toHaveBeenCalledTimes(1);
+    expect(leavingSoon.schedule).not.toHaveBeenCalled();
   });
 
   it.each([
-    { arrAction: 4, listExclusions: true },
-    { arrAction: 0, listExclusions: false },
+    { arrAction: 4, listExclusions: false },
+    { arrAction: 0, listExclusions: true },
   ])('refuses an unsafe collection action %j', async (settings) => {
     const original = { ...collection };
     Object.assign(collection, settings);
     try {
       await expect(service.approve(7, ['2'])).rejects.toThrow();
-      expect(handler.handleMedia).not.toHaveBeenCalled();
+      expect(leavingSoon.schedule).not.toHaveBeenCalled();
     } finally {
       Object.assign(collection, original);
     }
   });
-  it('rejects mismatched resolved arr identity before any action', async () => {
+  it('rejects mismatched resolved arr identity before scheduling', async () => {
     getMovie.mockResolvedValue({
       id: 999,
       tmdbId: 999,
@@ -257,7 +290,7 @@ describe('Collection review', () => {
       movieFile: { dateAdded: old },
     });
     await expect(service.approve(7, ['2'])).rejects.toThrow();
-    expect(handler.handleMedia).not.toHaveBeenCalled();
+    expect(leavingSoon.schedule).not.toHaveBeenCalled();
   });
 
   it('rejects two selected ids resolving to one canonical arr target', async () => {
@@ -268,7 +301,7 @@ describe('Collection review', () => {
       movieFile: { dateAdded: old },
     }));
     await expect(service.approve(7, ['2', '4'])).rejects.toThrow();
-    expect(handler.handleMedia).not.toHaveBeenCalled();
+    expect(leavingSoon.schedule).not.toHaveBeenCalled();
   });
   it('protects an unselected Plex copy mapped to the same physical arr target', async () => {
     const original = plex.getMetadataBatch.getMockImplementation()!;
@@ -290,21 +323,20 @@ describe('Collection review', () => {
       (await service.list(7)).candidates.map((item) => item.id),
     ).not.toContain('2');
     await expect(service.approve(7, ['2'])).rejects.toThrow();
-    expect(handler.handleMedia).not.toHaveBeenCalled();
+    expect(leavingSoon.schedule).not.toHaveBeenCalled();
   });
+  // The Leaving soon job runs validateTarget at the arr delete boundary.
   it.each(['watch', 'replacement import'])(
-    'blocks a %s that lands during the final inventory discovery',
+    'the delete-boundary check blocks a %s that lands during the final inventory discovery',
     async (change) => {
-      let atDeleteBoundary = false;
       let changed = false;
-      const remove = jest.fn();
       const readMetadata = plex.getMetadataBatch.getMockImplementation()!;
       stored.getItemIds.mockReturnValue(
         Array.from({ length: 101 }, (_, index) => String(index + 1)),
       );
       plex.getMetadataBatch.mockImplementation(async (ids, useCache) => {
         const result = await readMetadata(ids, useCache);
-        if (atDeleteBoundary && ids.includes('101')) changed = true;
+        if (ids.includes('101')) changed = true;
         return result;
       });
       stored.getWatchers.mockImplementation((id) =>
@@ -320,77 +352,17 @@ describe('Collection review', () => {
           dateAdded: change === 'replacement import' && changed ? recent : old,
         },
       }));
-      handler.handleMedia.mockImplementation(
-        async (_collection, _media, _reads, approval) => {
-          atDeleteBoundary = true;
-          await approval!.beforeDelete();
-          remove(approval!.target.id);
-          await approval!.recordOutcome('deleted');
-          return 'handled';
-        },
-      );
-      await expect(service.approve(7, ['2'])).resolves.toMatchObject({
-        items: [{ id: '2', status: 'not-deleted' }],
-      });
+      await expect(
+        service.validateTarget(collection, rows[1], {
+          kind: 'radarr',
+          settingsId: 1,
+          id: 2,
+          providerId: 2,
+          path: '/movies/2',
+          addedAt: old,
+        }),
+      ).rejects.toThrow();
       expect(changed).toBe(true);
-      expect(remove).not.toHaveBeenCalled();
     },
   );
-  it('records a confirmed deletion before cleanup and preserves cleanup failure accounting', async () => {
-    handler.handleMedia.mockImplementation(
-      async (_collection, _row, _reads, approval) => {
-        await approval!.recordOutcome('deleted');
-        throw new Error('Sibling cleanup failed after arr deletion');
-      },
-    );
-    await expect(service.approve(7, ['2'])).resolves.toMatchObject({
-      items: [
-        expect.objectContaining({
-          id: '2',
-          status: 'deleted-with-cleanup-failure',
-          arrId: 2,
-          title: expect.any(String),
-          year: null,
-          sizeBytes: 2000,
-          plexIds: ['2'],
-        }),
-      ],
-    });
-    const audit = collectionService.addLogRecord.mock.calls.map(
-      (call) => call[3],
-    );
-    expect(audit).toEqual([
-      expect.objectContaining({
-        type: 'review_deletion',
-        data: expect.objectContaining({ status: 'deleted' }),
-      }),
-      expect.objectContaining({
-        type: 'review_deletion',
-        data: expect.objectContaining({
-          status: 'deleted-with-cleanup-failure',
-        }),
-      }),
-    ]);
-  });
-
-  it('reports an uncertain arr outcome instead of claiming the target was not deleted', async () => {
-    handler.handleMedia.mockImplementation(
-      async (_collection, _row, _reads, approval) => {
-        await approval!.recordOutcome('uncertain');
-        return 'failed';
-      },
-    );
-    await expect(service.approve(7, ['2'])).resolves.toMatchObject({
-      items: [expect.objectContaining({ id: '2', status: 'uncertain' })],
-    });
-    expect(collectionService.addLogRecord).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.stringContaining('uncertain'),
-      expect.anything(),
-      expect.objectContaining({
-        type: 'review_deletion',
-        data: expect.objectContaining({ status: 'uncertain' }),
-      }),
-    );
-  });
 });

@@ -585,31 +585,40 @@ export class CollectionsController {
       );
     }
 
+    let reviewRequired = false;
     try {
       const currentCollection =
         await this.collectionService.getCollectionRecord(request.collectionId);
       if (!currentCollection)
         throw new NotFoundException('Collection not found');
-      if (currentCollection.reviewRequired) {
-        throw new ConflictException(
-          'Use the review page to approve this collection action',
+      reviewRequired = Boolean(currentCollection.reviewRequired);
+      if (!reviewRequired) {
+        const result = await this.collectionHandler.handleMedia(
+          currentCollection,
+          collectionMedia,
         );
-      }
-      const result = await this.collectionHandler.handleMedia(
-        currentCollection,
-        collectionMedia,
-      );
 
-      // 'handled' and 'removed-missing' both leave the item resolved (acted on
-      // or pruned because it no longer exists); only an unrecoverable 'failed'
-      // is surfaced as a conflict.
-      if (result === 'failed') {
-        throw new ConflictException(
-          'The collection action could not be executed for this item',
-        );
+        // 'handled' and 'removed-missing' both leave the item resolved (acted
+        // on or pruned because it no longer exists); only an unrecoverable
+        // 'failed' is surfaced as a conflict.
+        if (result === 'failed') {
+          throw new ConflictException(
+            'The collection action could not be executed for this item',
+          );
+        }
       }
     } finally {
       release();
+    }
+
+    // A review-required collection never deletes here. A stock Delete does
+    // what ticking the title on the review page does: approve() re-takes the
+    // lock, re-runs every review safety check, and schedules the title into
+    // Leaving soon. An ineligible title is refused with approve()'s error.
+    if (reviewRequired) {
+      await this.reviewService.approve(request.collectionId, [
+        request.mediaId,
+      ]);
     }
   }
 

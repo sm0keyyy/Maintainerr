@@ -158,6 +158,10 @@ msgstr "{count, plural, one {# second} other {# seconds}}"
 msgid "{count, plural, one {# year} other {# years}}"
 msgstr "{count, plural, one {# year} other {# years}}"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "{count} titles, {size}. They go to a 'Leaving soon' row in Plex for 14 days. Anyone watching one keeps it. The rest are deleted, with 7 days to undo."
+msgstr "{count} titles, {size}. They go to a 'Leaving soon' row in Plex for 14 days. Anyone watching one keeps it. The rest are deleted, with 7 days to undo."
+
 #: src/components/Settings/About/Releases/index.tsx
 msgid "{daysAgo, plural, one {# day ago} other {# days ago}}"
 msgstr "{daysAgo, plural, one {# day ago} other {# days ago}}"
@@ -545,8 +549,8 @@ msgid "Apply date overlays to posters in this collection"
 msgstr "Apply date overlays to posters in this collection"
 
 #: src/pages/CollectionReviewPage.tsx
-msgid "Approval requires whole-title Delete in Radarr or Sonarr with list exclusions enabled. Other actions remain disabled."
-msgstr "Approval requires whole-title Delete in Radarr or Sonarr with list exclusions enabled. Other actions remain disabled."
+msgid "Approval requires whole-title Delete in Radarr or Sonarr without list exclusions. Other actions remain disabled."
+msgstr "Approval requires whole-title Delete in Radarr or Sonarr without list exclusions. Other actions remain disabled."
 
 #: src/components/Rules/RuleGroup/index.tsx
 #: src/components/Settings/ServiceCard.tsx
@@ -978,6 +982,10 @@ msgstr "Corner Radius"
 msgid "Could not backup the database"
 msgstr "Could not backup the database"
 
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Could not cancel. It may already be deleting; reload."
+msgstr "Could not cancel. It may already be deleting; reload."
+
 #: src/components/Rules/RuleGroup/AddModal/CollectionPosterPicker.tsx
 msgid "Could not clear the stored poster"
 msgstr "Could not clear the stored poster"
@@ -1238,6 +1246,10 @@ msgstr "Deleted"
 #: src/pages/CollectionReviewPage.tsx
 msgid "Deleted; cleanup failed"
 msgstr "Deleted; cleanup failed"
+
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Deleting now"
+msgstr "Deleting now"
 
 #: src/components/Collection/CollectionDetail/CollectionInfo/index.tsx
 msgid "Descending"
@@ -2130,6 +2142,14 @@ msgstr "Jobs"
 msgid "Karma"
 msgstr "Karma"
 
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Keep"
+msgstr "Keep"
+
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Keep {title}"
+msgstr "Keep {title}"
+
 #: src/pages/CollectionReviewPage.tsx
 msgid "Keep {title} forever"
 msgstr "Keep {title} forever"
@@ -2221,12 +2241,16 @@ msgid "Leave unset to use the default title card template"
 msgstr "Leave unset to use the default title card template"
 
 #: src/pages/CollectionReviewPage.tsx
-msgid "Leaving {date}"
-msgstr "Leaving {date}"
+msgid "Leaving soon until {date}; watching it keeps it"
+msgstr "Leaving soon until {date}; watching it keeps it"
 
 #: src/pages/CollectionReviewPage.tsx
-msgid "Leaving soon"
-msgstr "Leaving soon"
+msgid "Leaving soon; watching it keeps it"
+msgstr "Leaving soon; watching it keeps it"
+
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Leaving soon: deleted on {date} unless someone watches it"
+msgstr "Leaving soon: deleted on {date} unless someone watches it"
 
 #: src/components/OverlayEditor/PropertiesPanel.tsx
 msgid "left"
@@ -3689,10 +3713,6 @@ msgstr "Selected Tab"
 #: src/pages/CollectionReviewPage.tsx
 msgid "Selected titles: {count}, total size: {size}"
 msgstr "Selected titles: {count}, total size: {size}"
-
-#: src/pages/CollectionReviewPage.tsx
-msgid "Selected titles: {count}, total size: {size}. These titles go to a 'Leaving soon' row for 14 days. Anyone watching one saves it. After that they're deleted, with 7 days to undo."
-msgstr "Selected titles: {count}, total size: {size}. These titles go to a 'Leaving soon' row for 14 days. Anyone watching one saves it. After that they're deleted, with 7 days to undo."
 
 #: src/components/Settings/Emby/index.tsx
 #: src/components/Settings/Jellyfin/index.tsx

@@ -6,8 +6,16 @@
   saves cannot overwrite the gate and settings changes share the approval lock.
 - Bind canonical arr targets, reject conflicting identities and duplicates, and
   check all affected Plex copies. Repeat fresh watch/age/session checks at each
-  destructive boundary. Reject approvals unless whole-title Delete and import
-  exclusions are configured.
+  destructive boundary. Reject approvals unless whole-title Delete is configured
+  with list exclusions off.
+- Approval no longer deletes. Approved titles go into a Plex "Leaving soon"
+  collection on every user's Home and Library recommended for 14 days. A daily
+  job saves any title anyone watched, started or is playing since approval, and
+  deletes the rest at their date through Radarr/Sonarr with files and without
+  an import-list exclusion, then clears the Seerr entry and rescans Plex.
+- Add `GET /api/review/leaving-soon` and `POST /api/review/leaving-soon/:id/cancel`,
+  a Leaving soon badge component with a Keep button, and notification type 4096
+  for the daily Leaving soon summary.
 - Finish inventory discovery before the final target-age and stored-watch reads;
   apply the same affected-copy protection to candidate listings.
 - Send approved deletions once, without transport retries; expose uncertain
@@ -18,7 +26,8 @@
 - Add Plex rule property 55, `lastViewedAtByAnyUser`, backed by read-only per-user
   stored watch state as well as session history and the owner metadata date.
 - Add quarterly review-ready notifications and ntfy click-through URLs.
-- Add the `collection.reviewRequired` database column.
+- Add the `collection.reviewRequired` database column and the `review_pending`
+  table.
 
 # [3.33.0](https://github.com/Maintainerr/Maintainerr/compare/v3.32.0...v3.33.0) (2026-11-20)
 

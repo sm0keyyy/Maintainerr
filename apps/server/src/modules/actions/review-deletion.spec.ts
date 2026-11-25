@@ -25,7 +25,7 @@ for (const kind of ['radarr', 'sonarr'] as const) {
         mediaServerType: MediaServerType.PLEX,
         reviewRequired: true,
         arrAction: ServarrAction.DELETE,
-        listExclusions: true,
+        listExclusions: false,
         radarrSettingsId: kind === 'radarr' ? 1 : null,
         sonarrSettingsId: kind === 'sonarr' ? 1 : null,
         sportarrSettingsId: null,

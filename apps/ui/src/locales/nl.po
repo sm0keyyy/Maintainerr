@@ -158,6 +158,10 @@ msgstr "{count, plural, one {# seconde} other {# seconden}}"
 msgid "{count, plural, one {# year} other {# years}}"
 msgstr "{count, plural, one {# jaar} other {# jaar}}"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "{count} titles, {size}. They go to a 'Leaving soon' row in Plex for 14 days. Anyone watching one keeps it. The rest are deleted, with 7 days to undo."
+msgstr ""
+
 #: src/components/Settings/About/Releases/index.tsx
 msgid "{daysAgo, plural, one {# day ago} other {# days ago}}"
 msgstr "{daysAgo, plural, one {# dag geleden} other {# dagen geleden}}"
@@ -545,7 +549,7 @@ msgid "Apply date overlays to posters in this collection"
 msgstr "Datumoverlays toepassen op posters in collectie"
 
 #: src/pages/CollectionReviewPage.tsx
-msgid "Approval requires whole-title Delete in Radarr or Sonarr with list exclusions enabled. Other actions remain disabled."
+msgid "Approval requires whole-title Delete in Radarr or Sonarr without list exclusions. Other actions remain disabled."
 msgstr ""
 
 #: src/components/Rules/RuleGroup/index.tsx
@@ -978,6 +982,10 @@ msgstr "Hoekstraal"
 msgid "Could not backup the database"
 msgstr "Kon geen back-up van de database maken"
 
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Could not cancel. It may already be deleting; reload."
+msgstr ""
+
 #: src/components/Rules/RuleGroup/AddModal/CollectionPosterPicker.tsx
 msgid "Could not clear the stored poster"
 msgstr "Kon de opgeslagen poster niet leegmaken"
@@ -1237,6 +1245,10 @@ msgstr ""
 
 #: src/pages/CollectionReviewPage.tsx
 msgid "Deleted; cleanup failed"
+msgstr ""
+
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Deleting now"
 msgstr ""
 
 #: src/components/Collection/CollectionDetail/CollectionInfo/index.tsx
@@ -2130,6 +2142,14 @@ msgstr "Taken"
 msgid "Karma"
 msgstr "Karma"
 
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Keep"
+msgstr ""
+
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Keep {title}"
+msgstr ""
+
 #: src/pages/CollectionReviewPage.tsx
 msgid "Keep {title} forever"
 msgstr ""
@@ -2221,11 +2241,15 @@ msgid "Leave unset to use the default title card template"
 msgstr "Leeg laten om het standaard titelkaart sjabloon te gebruiken"
 
 #: src/pages/CollectionReviewPage.tsx
-msgid "Leaving {date}"
+msgid "Leaving soon until {date}; watching it keeps it"
 msgstr ""
 
 #: src/pages/CollectionReviewPage.tsx
-msgid "Leaving soon"
+msgid "Leaving soon; watching it keeps it"
+msgstr ""
+
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Leaving soon: deleted on {date} unless someone watches it"
 msgstr ""
 
 #: src/components/OverlayEditor/PropertiesPanel.tsx
@@ -3688,10 +3712,6 @@ msgstr "Geselecteerd tabblad"
 
 #: src/pages/CollectionReviewPage.tsx
 msgid "Selected titles: {count}, total size: {size}"
-msgstr ""
-
-#: src/pages/CollectionReviewPage.tsx
-msgid "Selected titles: {count}, total size: {size}. These titles go to a 'Leaving soon' row for 14 days. Anyone watching one saves it. After that they're deleted, with 7 days to undo."
 msgstr ""
 
 #: src/components/Settings/Emby/index.tsx

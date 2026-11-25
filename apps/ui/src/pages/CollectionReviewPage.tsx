@@ -13,6 +13,8 @@ import {
   keepCollectionReviewItems,
   useCollectionReview,
 } from '../api/collections'
+import { LEAVING_SOON_QUERY_KEY, useLeavingSoon } from '../api/leavingSoon'
+import LeavingSoonBadge from '../components/Collection/LeavingSoonBadge'
 import Button from '../components/Common/Button'
 import ConfirmActionButton from '../components/Common/ConfirmActionButton'
 import { groupReviewCandidates } from '../utils/reviewGroups'
@@ -34,6 +36,14 @@ const CollectionReviewPage = ({ id }: { id: string }) => {
   const [shown, setShown] = useState(PAGE_SIZE)
   // Kept titles leave the page at once; the reload confirms it.
   const [kept, setKept] = useState<Set<string>>(() => new Set())
+  const leavingSoon = useLeavingSoon(id)
+  const pending = useMemo(
+    () =>
+      new Map(
+        (leavingSoon.data ?? []).map((item) => [item.mediaServerId, item]),
+      ),
+    [leavingSoon.data],
+  )
   const enable = useMutation({
     mutationFn: () => enableCollectionReview(id),
     onSuccess: () => invalidateCollectionQueries(queryClient),
@@ -67,8 +77,8 @@ const CollectionReviewPage = ({ id }: { id: string }) => {
     switch (item.status) {
       case 'scheduled':
         return item.deleteAt
-          ? t`Leaving ${{ date: date(item.deleteAt) }}`
-          : t`Leaving soon`
+          ? t`Leaving soon until ${{ date: date(item.deleteAt) }}; watching it keeps it`
+          : t`Leaving soon; watching it keeps it`
       case 'deleted':
         return t`Deleted`
       case 'deleted-with-cleanup-failure':
@@ -112,6 +122,7 @@ const CollectionReviewPage = ({ id }: { id: string }) => {
           type="checkbox"
           className="h-6 w-6 shrink-0 rounded focus-visible:ring-2"
           checked={selected.has(item.id)}
+          disabled={pending.has(item.id)}
           onChange={(event) => toggle(item.id, event.currentTarget.checked)}
           aria-label={t`Select ${{ title: item.title }}`}
         />
@@ -122,6 +133,11 @@ const CollectionReviewPage = ({ id }: { id: string }) => {
           <span className="shrink-0 rounded bg-zinc-600 px-2 text-sm">4K</span>
         ) : null}
       </label>
+      {pending.has(item.id) ? (
+        <div className="mb-3">
+          <LeavingSoonBadge item={pending.get(item.id)!} />
+        </div>
+      ) : null}
       <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div>
           <dt className="text-zinc-400">
@@ -252,14 +268,19 @@ const CollectionReviewPage = ({ id }: { id: string }) => {
                 )
                 setSelected(new Set())
                 setOutcome(result)
-                await invalidateCollectionQueries(queryClient)
+                await Promise.all([
+                  invalidateCollectionQueries(queryClient),
+                  queryClient.invalidateQueries({
+                    queryKey: LEAVING_SOON_QUERY_KEY,
+                  }),
+                ])
               }}
             >
               <p className="mb-3">
                 <Trans>
-                  Selected titles: {count}, total size: {size}. These titles go
-                  to a 'Leaving soon' row for 14 days. Anyone watching one saves
-                  it. After that they're deleted, with 7 days to undo.
+                  {count} titles, {size}. They go to a 'Leaving soon' row in
+                  Plex for 14 days. Anyone watching one keeps it. The rest are
+                  deleted, with 7 days to undo.
                 </Trans>
               </p>
               <ul className="list-inside list-disc">
@@ -272,8 +293,8 @@ const CollectionReviewPage = ({ id }: { id: string }) => {
           {!data.approvalAllowed ? (
             <p className="mb-4 text-amber-300">
               <Trans>
-                Approval requires whole-title Delete in Radarr or Sonarr with
-                list exclusions enabled. Other actions remain disabled.
+                Approval requires whole-title Delete in Radarr or Sonarr
+                without list exclusions. Other actions remain disabled.
               </Trans>
             </p>
           ) : null}

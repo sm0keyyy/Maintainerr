@@ -65,7 +65,9 @@ describe('CollectionsController', () => {
     setContext: jest.fn(),
   } as unknown as jest.Mocked<MaintainerrLogger>;
 
-  const reviewService = {} as CollectionReviewService; // Existing controller tests do not enter review routes.
+  const reviewService = {
+    approve: jest.fn(),
+  } as unknown as jest.Mocked<CollectionReviewService>;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -311,20 +313,47 @@ describe('CollectionsController', () => {
     expect(Number(movieAction.context.id)).toBe(12345);
   });
 
-  it('cannot bypass a review enabled between the initial read and acquiring the action lock', async () => {
+  it('schedules a stock Delete on a review-required collection into Leaving soon, rechecked under the lock', async () => {
     const collection = createCollection();
     const media = createCollectionMedia(collection);
+    const release = jest.fn();
+    executionLock.tryAcquire.mockReturnValue(release);
     collectionsService.getCollectionRecord
       .mockResolvedValueOnce(collection)
       .mockResolvedValueOnce({ ...collection, reviewRequired: true });
     collectionsService.getCollectionMediaRecord.mockResolvedValue(media);
-    collectionHandler.handleMedia.mockResolvedValue('handled');
+    reviewService.approve.mockImplementation(async () => {
+      // approve() takes the lock itself, so the handler must release first.
+      expect(release).toHaveBeenCalled();
+      return { items: [] };
+    });
     await expect(
       controller.handleCollectionMedia({
         collectionId: collection.id,
         mediaId: media.mediaServerId,
       }),
-    ).rejects.toBeInstanceOf(ConflictException);
+    ).resolves.toBeUndefined();
+    expect(reviewService.approve).toHaveBeenCalledWith(collection.id, [
+      media.mediaServerId,
+    ]);
+    expect(collectionHandler.handleMedia).not.toHaveBeenCalled();
+  });
+
+  it('refuses a stock Delete of a title the review would not admit', async () => {
+    const collection = { ...createCollection(), reviewRequired: true };
+    const media = createCollectionMedia(collection);
+    executionLock.tryAcquire.mockReturnValue(jest.fn());
+    collectionsService.getCollectionRecord.mockResolvedValue(collection);
+    collectionsService.getCollectionMediaRecord.mockResolvedValue(media);
+    reviewService.approve.mockRejectedValue(
+      new BadRequestException('Selection is stale or contains ineligible ids'),
+    );
+    await expect(
+      controller.handleCollectionMedia({
+        collectionId: collection.id,
+        mediaId: media.mediaServerId,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
     expect(collectionHandler.handleMedia).not.toHaveBeenCalled();
   });
 

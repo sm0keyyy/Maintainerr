@@ -158,6 +158,10 @@ msgstr "{count, plural, one {# segundo} other {# segundos}}"
 msgid "{count, plural, one {# year} other {# years}}"
 msgstr "{count, plural, one {# año} other {# años}}"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "{count} titles, {size}. They go to a 'Leaving soon' row in Plex for 14 days. Anyone watching one keeps it. The rest are deleted, with 7 days to undo."
+msgstr ""
+
 #: src/components/Settings/About/Releases/index.tsx
 msgid "{daysAgo, plural, one {# day ago} other {# days ago}}"
 msgstr "{daysAgo, plural, one {Hace # día} other {Hace # días}}"
@@ -545,7 +549,7 @@ msgid "Apply date overlays to posters in this collection"
 msgstr "Aplicar superposiciones de fechas a los carteles de esta colección."
 
 #: src/pages/CollectionReviewPage.tsx
-msgid "Approval requires whole-title Delete in Radarr or Sonarr with list exclusions enabled. Other actions remain disabled."
+msgid "Approval requires whole-title Delete in Radarr or Sonarr without list exclusions. Other actions remain disabled."
 msgstr ""
 
 #: src/components/Rules/RuleGroup/index.tsx
@@ -978,6 +982,10 @@ msgstr "Radio de esquina"
 msgid "Could not backup the database"
 msgstr "No se pudo hacer una copia de seguridad de la base de datos"
 
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Could not cancel. It may already be deleting; reload."
+msgstr ""
+
 #: src/components/Rules/RuleGroup/AddModal/CollectionPosterPicker.tsx
 msgid "Could not clear the stored poster"
 msgstr "No se pudo borrar el cartel almacenado"
@@ -1237,6 +1245,10 @@ msgstr ""
 
 #: src/pages/CollectionReviewPage.tsx
 msgid "Deleted; cleanup failed"
+msgstr ""
+
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Deleting now"
 msgstr ""
 
 #: src/components/Collection/CollectionDetail/CollectionInfo/index.tsx
@@ -2130,6 +2142,14 @@ msgstr "Tareas"
 msgid "Karma"
 msgstr "Karma"
 
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Keep"
+msgstr ""
+
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Keep {title}"
+msgstr ""
+
 #: src/pages/CollectionReviewPage.tsx
 msgid "Keep {title} forever"
 msgstr ""
@@ -2221,11 +2241,15 @@ msgid "Leave unset to use the default title card template"
 msgstr "Déjelo sin configurar para usar la plantilla de tarjeta de título predeterminada"
 
 #: src/pages/CollectionReviewPage.tsx
-msgid "Leaving {date}"
+msgid "Leaving soon until {date}; watching it keeps it"
 msgstr ""
 
 #: src/pages/CollectionReviewPage.tsx
-msgid "Leaving soon"
+msgid "Leaving soon; watching it keeps it"
+msgstr ""
+
+#: src/components/Collection/LeavingSoonBadge.tsx
+msgid "Leaving soon: deleted on {date} unless someone watches it"
 msgstr ""
 
 #: src/components/OverlayEditor/PropertiesPanel.tsx
@@ -3688,10 +3712,6 @@ msgstr "Pestaña seleccionada"
 
 #: src/pages/CollectionReviewPage.tsx
 msgid "Selected titles: {count}, total size: {size}"
-msgstr ""
-
-#: src/pages/CollectionReviewPage.tsx
-msgid "Selected titles: {count}, total size: {size}. These titles go to a 'Leaving soon' row for 14 days. Anyone watching one saves it. After that they're deleted, with 7 days to undo."
 msgstr ""
 
 #: src/components/Settings/Emby/index.tsx

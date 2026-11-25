@@ -76,6 +76,11 @@ export class NotificationService implements OnModuleInit {
     return this.sendNotification(NotificationType.REVIEW_READY, payload);
   }
 
+  @OnEvent('collection.review-leaving-soon')
+  async reviewLeavingSoon(payload: NotificationPayload): Promise<string[]> {
+    return this.sendNotification(NotificationType.REVIEW_LEAVING_SOON, payload);
+  }
+
   // Dedupe state for notifications fired during a rule-executor batch
   // (one processQueue() pass). Two same-titled automatic rule groups
   // sharing a Plex collection both emit `Media Added`/`Removed` for the
