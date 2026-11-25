@@ -11,10 +11,19 @@ export const reviewApprovalSchema = z.object({
     ),
 })
 
+/** Titles to keep forever: a global exclusion, so no rule or review lists them again. */
+export const reviewKeepSchema = reviewApprovalSchema
+
 export interface ReviewWatcher {
   userId: string
   name: string
   lastWatchedAt: string
+}
+
+/** A movie series (TMDB collection); every member is still ticked on its own. */
+export interface ReviewGroup {
+  id: string
+  title: string
 }
 
 export interface ReviewCandidate {
@@ -26,6 +35,10 @@ export interface ReviewCandidate {
   addedAt: string
   lastWatchedAt: string | null
   watchers: ReviewWatcher[]
+  /** Additive. Movies in the same TMDB collection share a group. */
+  group?: ReviewGroup | null
+  /** Additive. A 4K copy is a candidate like any other; never downgraded. */
+  is4k?: boolean
 }
 
 export interface CollectionReview {

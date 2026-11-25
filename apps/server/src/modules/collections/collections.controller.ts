@@ -59,7 +59,7 @@ import {
 } from '../tasks/execution-lock.service';
 import { CollectionHandler } from './collection-handler';
 import { CollectionReviewService } from './collection-review.service';
-import { reviewApprovalSchema } from '@maintainerr/contracts';
+import { reviewApprovalSchema, reviewKeepSchema } from '@maintainerr/contracts';
 import {
   CollectionPosterService,
   InvalidCollectionPosterError,
@@ -321,6 +321,17 @@ export class CollectionsController {
   notifyReview(@Param('id', ParseIntPipe) id: number) {
     return this.reviewService.notify(id);
   }
+
+  /** Keep forever: global exclusions for the given titles of this collection. */
+  @Post('/:id/review/keep')
+  keepReview(
+    @Param('id', ParseIntPipe) id: number,
+    @Body(new ZodValidationPipe(reviewKeepSchema))
+    request: z.infer<typeof reviewKeepSchema>,
+  ) {
+    return this.reviewService.keep(id, request.ids);
+  }
+
   @Post()
   async createCollection(
     @Body(new ZodValidationPipe(createCollectionBodySchema))

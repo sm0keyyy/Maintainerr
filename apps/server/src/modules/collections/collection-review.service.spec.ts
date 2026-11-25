@@ -1,13 +1,11 @@
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Mocked, TestBed } from '@suites/unit';
 import { Repository } from 'typeorm';
-import { IMediaServerService } from '../api/media-server/media-server.interface';
 import { Exclusion } from '../rules/entities/exclusion.entities';
 import { CollectionReviewService } from './collection-review.service';
 import { Collection } from './entities/collection.entities';
 import { CollectionMedia } from './entities/collection_media.entities';
 import { CollectionHandler } from './collection-handler';
-import { MediaServerFactory } from '../api/media-server/media-server.factory';
 import { PlexApiService } from '../api/plex-api/plex-api.service';
 import { PlexStoredWatchService } from '../api/plex-api/plex-stored-watch.service';
 import { ServarrService } from '../api/servarr-api/servarr.service';
@@ -15,7 +13,6 @@ import { ExecutionLockService } from '../tasks/execution-lock.service';
 import {
   createCollection,
   createCollectionMedia,
-  createMediaItem,
   createPlexMetadata,
 } from '../../../test/utils/data';
 import { CollectionsService } from './collections.service';
@@ -77,6 +74,18 @@ describe('Collection review', () => {
       { userId: '2', name: 'Other user', lastWatchedAt: old },
     ]);
     stored.getItemIds.mockReturnValue(rows.map((row) => row.mediaServerId));
+    // The list reads every title's stored state in one pass; this fixture
+    // derives it from the per-title reads approve() uses, so one mock drives
+    // both. An unreadable title fails the whole pass, as one SQL read does.
+    stored.getReviewSnapshot.mockImplementation((type) => ({
+      states: new Map(
+        stored.getItemIds(type).map((id) => [
+          id,
+          { watchers: stored.getWatchers(id, type), inProgress: false },
+        ]),
+      ),
+      showSizes: new Map(),
+    }));
     plex = unitRef.get(PlexApiService);
     plex.getWatchHistory.mockResolvedValue([]);
     plex.getCorrectedUsers.mockResolvedValue([]);
@@ -124,28 +133,18 @@ describe('Collection review', () => {
         ],
       }),
     );
-    const mediaServer = {
-      getMetadata: jest.fn(async (id: string) =>
-        createMediaItem({
-          id,
-          type: 'movie',
-          addedAt: new Date(old),
-          ratings: [{ source: 'audience', value: 9 }],
-          mediaSources: [
-            { id: 'file', duration: 0, sizeBytes: Number(id) * 1000 },
-          ],
-        }),
-      ),
-      getActiveSessions: jest.fn().mockResolvedValue(new Set()),
-    } as unknown as IMediaServerService; // Only the read boundary used by this fixture.
-    unitRef.get(MediaServerFactory).getService.mockResolvedValue(mediaServer);
     getMovie = jest.fn().mockImplementation(async (id: number) => ({
       id,
       tmdbId: id,
       path: `/movies/${id}`,
       movieFile: { dateAdded: old },
     }));
-    const radarr = { getMovieByTmdbId: getMovie } as unknown as Awaited<
+    const radarr = {
+      getMovieByTmdbId: getMovie,
+      getMovies: jest.fn(async () =>
+        Promise.all(rows.map((row) => getMovie(row.tmdbId))),
+      ),
+    } as unknown as Awaited<
       ReturnType<ServarrService['getRadarrApiClient']>
     >; // Network client boundary.
     unitRef.get(ServarrService).getRadarrApiClient.mockResolvedValue(radarr);
@@ -186,7 +185,6 @@ describe('Collection review', () => {
   });
   it('never admits another account recent stored view, a recent file, or an unread watch state', async () => {
     stored.getWatchers.mockImplementation((id: string) => {
-      if (id === '3') throw new Error('unread');
       return id === '1'
         ? [{ userId: '2', name: 'Other user', lastWatchedAt: recent }]
         : [];
@@ -200,8 +198,15 @@ describe('Collection review', () => {
     expect((await service.list(7)).candidates.map((item) => item.id)).toEqual([
       '5',
       '4',
+      '3',
     ]);
     await expect(service.approve(7, ['1'])).rejects.toThrow();
+    stored.getWatchers.mockImplementation((id: string) => {
+      if (id === '3') throw new Error('unread');
+      return [];
+    });
+    await expect(service.list(7)).rejects.toThrow();
+    await expect(service.approve(7, ['4'])).rejects.toThrow();
     expect(handler.handleMedia).not.toHaveBeenCalled();
   });
   it('fails closed when the strict Plex session read fails', async () => {

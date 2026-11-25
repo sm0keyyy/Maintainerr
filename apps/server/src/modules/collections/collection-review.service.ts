@@ -20,10 +20,12 @@ import {
 import { Cron } from '@nestjs/schedule';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { MediaServerFactory } from '../api/media-server/media-server.factory';
+import { IsNull, Not, Repository } from 'typeorm';
+import cacheManager from '../api/lib/cache';
 import { PlexApiService } from '../api/plex-api/plex-api.service';
 import { PlexStoredWatchService } from '../api/plex-api/plex-stored-watch.service';
+import { SeerrApiService } from '../api/seerr-api/seerr-api.service';
+import { RadarrMovie } from '../api/servarr-api/interfaces/radarr.interface';
 import { ServarrService } from '../api/servarr-api/servarr.service';
 import { MaintainerrLogger } from '../logging/logs.service';
 import { Exclusion } from '../rules/entities/exclusion.entities';
@@ -42,11 +44,38 @@ import { CollectionMedia } from './entities/collection_media.entities';
 import { CollectionsService } from './collections.service';
 import { PlexMapper } from '../api/media-server/plex/plex.mapper';
 import { allowsReviewDeletion, ReviewTarget } from '../actions/review-deletion';
+import {
+  evaluateReviewRow,
+  indexInventory,
+  mapLimit,
+  ReviewArrEntry,
+  ReviewProtections,
+  validImdbRating,
+} from './review-list';
 
 const REVIEW_WINDOW_MS = 365 * 86400000;
+// Identity, paths and sizes change rarely, and approve() re-reads them fresh.
+const INVENTORY_TTL_MS = 10 * 60000;
+const ARR_TTL_MS = 10 * 60000;
+const RATING_TTL_MS = 24 * 3600000;
+const READ_CONCURRENCY = 4;
+const RATING_CONCURRENCY = 8;
 
 @Injectable()
 export class CollectionReviewService {
+  private readonly inventoryCache = new Map<
+    'movie' | 'show',
+    { readAt: number; items: Map<string, MediaItem> }
+  >();
+  private readonly arrCache = new Map<
+    string,
+    { readAt: number; entries: Map<number, ReviewArrEntry> }
+  >();
+  private readonly ratingCache = new Map<
+    string,
+    { readAt: number; value: number | null }
+  >();
+
   constructor(
     @InjectRepository(Collection)
     private readonly collections: Repository<Collection>,
@@ -54,7 +83,6 @@ export class CollectionReviewService {
     private readonly media: Repository<CollectionMedia>,
     @InjectRepository(Exclusion)
     private readonly exclusions: Repository<Exclusion>,
-    private readonly mediaServerFactory: MediaServerFactory,
     private readonly plex: PlexApiService,
     private readonly storedWatch: PlexStoredWatchService,
     private readonly servarr: ServarrService,
@@ -63,6 +91,7 @@ export class CollectionReviewService {
     private readonly events: EventEmitter2,
     private readonly logger: MaintainerrLogger,
     private readonly collectionService: CollectionsService,
+    private readonly seerr: SeerrApiService,
   ) {}
 
   private async collection(id: number): Promise<Collection> {
@@ -316,6 +345,176 @@ export class CollectionReviewService {
     );
   }
 
+  /**
+   * Plex metadata for every movie or show, refreshed whole after
+   * INVENTORY_TTL_MS and topped up with ids added since. Only identity, paths
+   * and sizes come from it: watch state, sessions, requests, watchlists and
+   * exclusions are read fresh on every list.
+   */
+  private async reviewInventory(type: 'movie' | 'show'): Promise<MediaItem[]> {
+    const ids = this.storedWatch.getItemIds(type);
+    const cached = this.inventoryCache.get(type);
+    const fresh = !cached || Date.now() - cached.readAt >= INVENTORY_TTL_MS;
+    const entry = fresh ? { readAt: Date.now(), items: new Map() } : cached;
+    const missing = ids.filter((itemId) => !entry.items.has(itemId));
+    const batches: string[][] = [];
+    for (let start = 0; start < missing.length; start += 100)
+      batches.push(missing.slice(start, start + 100));
+    for (const batch of await mapLimit(batches, READ_CONCURRENCY, (batch) =>
+      this.freshItems(batch),
+    )) {
+      for (const item of batch) {
+        if (item.type !== type)
+          throw new Error('Unexpected Plex inventory type');
+        entry.items.set(item.id, item);
+      }
+    }
+    this.inventoryCache.set(type, entry);
+    return ids.map((itemId) => entry.items.get(itemId)!);
+  }
+
+  /** The whole arr library in one read, cached for ARR_TTL_MS. */
+  private async reviewArr(
+    collection: Collection,
+  ): Promise<Map<number, ReviewArrEntry>> {
+    const movie = collection.type === 'movie';
+    const settingsId = movie
+      ? collection.radarrSettingsId
+      : collection.sonarrSettingsId;
+    if (!settingsId) throw new Error('Missing review arr configuration');
+    const key = `${movie ? 'radarr' : 'sonarr'}:${settingsId}`;
+    const cached = this.arrCache.get(key);
+    if (cached && Date.now() - cached.readAt < ARR_TTL_MS)
+      return cached.entries;
+    const readAt = Date.now();
+    const entries = new Map<number, ReviewArrEntry>();
+    if (movie) {
+      const api = await this.servarr.getRadarrApiClient(settingsId);
+      // Radarr sends each movie's TMDB collection; the shared typing omits it.
+      const movies = (await api.getMovies()) as
+        | (RadarrMovie & { collection?: { tmdbId?: number; title?: string } })[]
+        | undefined;
+      if (!Array.isArray(movies)) throw new Error('Unread Radarr library');
+      for (const entry of movies) {
+        if (entries.has(entry.tmdbId)) continue;
+        const imdb = entry.ratings?.imdb;
+        entries.set(entry.tmdbId, {
+          kind: 'radarr',
+          settingsId,
+          id: entry.id,
+          providerId: entry.tmdbId,
+          tmdbId: entry.tmdbId,
+          path: entry.path,
+          addedAt: entry.movieFile?.dateAdded,
+          imdbRating: imdb?.votes ? validImdbRating(imdb.value) : null,
+          group: entry.collection?.tmdbId
+            ? {
+                id: `tmdb:${entry.collection.tmdbId}`,
+                title: entry.collection.title || '',
+              }
+            : null,
+        });
+      }
+    } else {
+      const api = await this.servarr.getSonarrApiClient(settingsId);
+      const series = await api.getSeries();
+      if (!Array.isArray(series)) throw new Error('Unread Sonarr library');
+      for (const entry of series) {
+        if (entries.has(entry.tvdbId)) continue;
+        entries.set(entry.tvdbId, {
+          kind: 'sonarr',
+          settingsId,
+          id: entry.id,
+          providerId: entry.tvdbId,
+          tmdbId: entry.tmdbId,
+          path: entry.path,
+          addedAt: entry.added,
+          // Sonarr's rating is not IMDb's; the Plex rating fills it in.
+          imdbRating: null,
+          group: null,
+        });
+      }
+    }
+    this.arrCache.set(key, { readAt, entries });
+    return entries;
+  }
+
+  /**
+   * M18: Seerr requests from the last year, and every Plex and Seerr
+   * watchlist. Read fresh each time; an unreadable source fails the list
+   * rather than hiding a protection.
+   */
+  private async reviewProtections(cutoff: number): Promise<ReviewProtections> {
+    const protections: ReviewProtections = {
+      requested: new Set(),
+      requestedTvdb: new Set(),
+      plexWatchlist: new Set(),
+      seerrWatchlist: new Set(),
+    };
+    const readSeerr = async () => {
+      if (!this.seerr.isConfigured()) return;
+      const [requests, watchlists] = await Promise.all([
+        this.seerr.getRequests(),
+        this.seerr.getFreshWatchlistIndex(),
+      ]);
+      if (!requests || !watchlists)
+        throw new Error('Seerr requests or watchlists unread');
+      for (const request of requests) {
+        // An unreadable date protects, like a recent one.
+        const requestedAt = Date.parse(request.createdAt);
+        if (Number.isFinite(requestedAt) && requestedAt < cutoff) continue;
+        if (request.media?.tmdbId)
+          protections.requested.add(`${request.type}:${request.media.tmdbId}`);
+        if (request.type === 'tv' && request.media?.tvdbId)
+          protections.requestedTvdb.add(request.media.tvdbId);
+      }
+      for (const key of watchlists.keys()) protections.seerrWatchlist.add(key);
+    };
+    const readPlex = async () => {
+      const users = await this.plex.getCorrectedUsers();
+      const readable = users.filter((user) => user.uuid);
+      if (users.length > 0 && readable.length === 0)
+        throw new Error('Plex watchlists unread: no plex.tv user ids');
+      // The community client caches answers for minutes; a title added to a
+      // watchlist since must protect now.
+      cacheManager.getCache('plexcommunity')?.flush();
+      await mapLimit(readable, READ_CONCURRENCY, async (user) => {
+        const watchlist = await this.plex.getWatchlistIdsForUser(
+          user.uuid,
+          user.username,
+        );
+        if (watchlist === undefined)
+          throw new Error(`Plex watchlist of ${user.username} unread`);
+        // null: Plex does not share this user's watchlist (Seerr may).
+        for (const entry of watchlist ?? [])
+          protections.plexWatchlist.add(entry.id);
+      });
+    };
+    await Promise.all([readSeerr(), readPlex()]);
+    return protections;
+  }
+
+  /** IMDb rating from Plex's own ratings, for titles the arr has none for. */
+  private async plexImdbRating(itemId: string): Promise<number | null> {
+    const cached = this.ratingCache.get(itemId);
+    if (cached && Date.now() - cached.readAt < RATING_TTL_MS)
+      return cached.value;
+    const native = await this.plex.getMetadata(itemId);
+    if (!native) return null;
+    const value = validImdbRating(
+      native.Rating?.find((entry) =>
+        entry.image?.toLowerCase().includes('imdb'),
+      )?.value,
+    );
+    this.ratingCache.set(itemId, { readAt: Date.now(), value });
+    return value;
+  }
+
+  /**
+   * Every title in the collection that may be reviewed, biggest first. One
+   * read per source for the whole list; approve() repeats its own fresh
+   * per-title checks before anything is acted on.
+   */
   async list(id: number): Promise<CollectionReview> {
     const collection = await this.collection(id);
     const result: CollectionReview = {
@@ -327,10 +526,19 @@ export class CollectionReviewService {
       unavailableIds: [],
     };
     if (!collection.reviewRequired) return result;
-    const server = await this.mediaServerFactory.getService();
-    const playing = await this.playing();
-    const rows = await this.media.find({ where: { collectionId: id } });
-    const exclusions = await this.exclusions.find();
+    const type = collection.type === 'movie' ? 'movie' : 'show';
+    const cutoff = Date.now() - REVIEW_WINDOW_MS;
+    const [rows, exclusions, playing, inventory, arr, protections] =
+      await Promise.all([
+        this.media.find({ where: { collectionId: id } }),
+        this.exclusions.find(),
+        this.playing(),
+        this.reviewInventory(type),
+        this.reviewArr(collection),
+        this.reviewProtections(cutoff),
+      ]);
+    // Read after every network read finished, so it is the newest input.
+    const { states, showSizes } = this.storedWatch.getReviewSnapshot(type);
     const cascade = buildExclusionCascadeSets(
       exclusions.filter(
         (exclusion) =>
@@ -338,77 +546,94 @@ export class CollectionReviewService {
           exclusion.ruleGroupId === collection.ruleGroup?.id,
       ),
     );
-    const cutoff = Date.now() - REVIEW_WINDOW_MS;
-    const inventory = await this.inventory(collection);
+    const index = indexInventory(
+      inventory,
+      type === 'movie' ? 'radarr' : 'sonarr',
+    );
+    const unrated: ReviewCandidate[] = [];
     for (const row of rows) {
-      if (row.ruleEvaluationFailed || playing.has(row.mediaServerId)) continue;
-      try {
-        const [item] = await this.freshItems([row.mediaServerId]);
-        if (!item || item.type !== collection.type)
-          throw new Error('Unread collection member');
-        if (isMediaItemExcluded(cascade, item)) continue;
-        const watchers = await this.watchers(collection, item);
-        const lastWatchedMs = Math.max(
-          item.lastViewedAt?.getTime() ?? 0,
-          ...watchers.map((watcher) =>
-            new Date(watcher.lastWatchedAt).getTime(),
-          ),
-        );
-        if (!Number.isFinite(lastWatchedMs))
-          throw new Error('Invalid watch date');
-        if (lastWatchedMs >= cutoff) continue;
-        const target = await this.target(collection, row, item);
-        const { addedAt } = target;
-        if (new Date(addedAt).getTime() >= cutoff) continue;
-        await this.validateTarget(collection, row, target, inventory);
-        // Show metadata has no file size: sum the same leaf files as the
-        // existing collection size resolver, never a season-level action.
-        let sizeBytes = item.mediaSources.reduce(
-          (sum, source) => sum + (source.sizeBytes ?? 0),
-          0,
-        );
-        if (item.type === 'show') {
-          sizeBytes =
-            (await this.collectionService.resolveItemSize(server, item.id)) ??
-            0;
-        }
-        if (!Number.isFinite(sizeBytes) || sizeBytes <= 0)
-          throw new Error('Unread size');
-        const native = await this.plex.getMetadata(item.id);
-        const rating =
-          native?.Rating?.find((entry) =>
-            entry.image.toLowerCase().includes('imdb'),
-          )?.value ??
-          item.ratings?.find((entry) =>
-            entry.source.toLowerCase().includes('imdb'),
-          )?.value;
-        const imdbRating =
-          typeof rating === 'number' &&
-          Number.isFinite(rating) &&
-          rating >= 0 &&
-          rating <= 10
-            ? rating
-            : null;
-        const candidate: ReviewCandidate = {
-          id: item.id,
-          title: item.title,
-          sizeBytes,
-          imdbRating,
-          lowRated: imdbRating !== null && imdbRating < 6,
-          addedAt,
-          lastWatchedAt:
-            lastWatchedMs > 0 ? new Date(lastWatchedMs).toISOString() : null,
-          watchers,
-        };
-        result.candidates.push(candidate);
-      } catch {
+      if (row.ruleEvaluationFailed) continue;
+      const outcome = evaluateReviewRow({
+        type,
+        row,
+        inventory: index,
+        arr,
+        states,
+        showSizes,
+        cascade,
+        playing,
+        protections,
+        cutoff,
+      });
+      if (outcome.kind === 'unavailable')
         result.unavailableIds.push(row.mediaServerId);
-      }
+      if (outcome.kind !== 'candidate') continue;
+      result.candidates.push(outcome.candidate);
+      if (outcome.needsRating) unrated.push(outcome.candidate);
     }
+    await mapLimit(unrated, RATING_CONCURRENCY, async (candidate) => {
+      candidate.imdbRating = await this.plexImdbRating(candidate.id);
+      candidate.lowRated =
+        candidate.imdbRating !== null && candidate.imdbRating < 6;
+    });
     result.candidates.sort(
       (a, b) => b.sizeBytes - a.sizeBytes || a.id.localeCompare(b.id),
     );
     return result;
+  }
+
+  /**
+   * Keep forever: a global exclusion, so no rule, review or approval acts on
+   * the title again. Remove it from Maintainerr's exclusions to undo.
+   */
+  async keep(id: number, ids: string[]): Promise<void> {
+    // Same guard as the stock exclusion endpoint: never race a rule run.
+    const release = this.executionLock.tryAcquire(
+      RULES_COLLECTIONS_EXECUTION_LOCK_KEY,
+    );
+    if (!release)
+      throw new ConflictException('A collection or rule run is in progress');
+    try {
+      const collection = await this.collection(id);
+      const members = new Set(
+        (await this.media.find({ where: { collectionId: id } })).map(
+          (row) => row.mediaServerId,
+        ),
+      );
+      if (ids.some((itemId) => !members.has(itemId)))
+        throw new BadRequestException(
+          'Selection contains titles outside this collection. Reload the review.',
+        );
+      for (const itemId of ids) {
+        const existing = await this.exclusions.findOne({
+          where: { mediaServerId: itemId, ruleGroupId: IsNull() },
+        });
+        if (!existing)
+          await this.exclusions.save({
+            mediaServerId: itemId,
+            ruleGroupId: null,
+            parent: itemId,
+            type: collection.type,
+          });
+        // A global exclusion subsumes scoped ones, as the stock endpoint does.
+        await this.exclusions.delete({
+          mediaServerId: itemId,
+          ruleGroupId: Not(IsNull()),
+        });
+        this.logger.log(`Review keep forever: global exclusion for ${itemId}`);
+        try {
+          await this.collectionService.CollectionLogRecordForChild(
+            itemId,
+            collection.id,
+            'exclude',
+          );
+        } catch {
+          this.logger.warn(`Could not write the keep log record for ${itemId}`);
+        }
+      }
+    } finally {
+      release();
+    }
   }
 
   private async recordDeletion(

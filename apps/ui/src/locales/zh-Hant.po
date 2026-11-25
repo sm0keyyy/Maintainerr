@@ -543,10 +543,6 @@ msgid "Apply date overlays to posters in this collection"
 msgstr "將日期覆蓋圖層套用至此收藏集的海報"
 
 #: src/pages/CollectionReviewPage.tsx
-msgid "Applying collection action..."
-msgstr ""
-
-#: src/pages/CollectionReviewPage.tsx
 msgid "Approval requires whole-title Delete in Radarr or Sonarr with list exclusions enabled. Other actions remain disabled."
 msgstr ""
 
@@ -658,7 +654,7 @@ msgid "Bigger"
 msgstr "大於"
 
 #: src/pages/CollectionReviewPage.tsx
-msgid "Biggest first. Nothing is selected automatically. Titles watched by anyone or added in the last 365 days are protected."
+msgid "Biggest first, movie series together. Nothing is selected automatically. Titles watched or added in the last year, requested in the last year, on a watchlist, partly watched, or kept forever are not listed."
 msgstr ""
 
 #: src/components/OverlayEditor/PropertiesPanel.tsx
@@ -899,17 +895,13 @@ msgstr "設定 Emby 伺服器連線。輸入伺服器 URL 和 API 金鑰，或�
 msgid "Configured"
 msgstr "已設定"
 
-#: src/pages/CollectionReviewPage.tsx
-msgid "Confirm collection action"
-msgstr ""
-
-#: src/pages/CollectionReviewPage.tsx
-msgid "Confirm delete"
-msgstr ""
-
 #: src/components/Common/MediaActionModal.tsx
 msgid "Confirm Global Exclusion"
 msgstr "確認全域排除"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Confirm move"
+msgstr ""
 
 #: src/components/Common/MediaActionModal.tsx
 msgid "Confirm Removal From Every Collection"
@@ -996,6 +988,10 @@ msgstr ""
 msgid "Could not fetch libraries"
 msgstr "無法取得媒體庫"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Could not keep the title. Reload and try again."
+msgstr ""
+
 #: src/components/Services/useServices.tsx
 msgid "Could not load"
 msgstr "無法載入"
@@ -1027,6 +1023,10 @@ msgstr "無法載入集數"
 #: src/components/Common/MediaActionModal.tsx
 msgid "Could not load the seasons"
 msgstr "無法載入季度"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Could not move the titles. Reload the review before trying again."
+msgstr ""
 
 #: src/components/Rules/RuleGroup/AddModal/CollectionPosterPicker.tsx
 msgid "Could not upload poster - check that the file is a valid image"
@@ -1169,10 +1169,6 @@ msgstr "預設標題卡範本"
 msgid "Delete"
 msgstr "刪除"
 
-#: src/pages/CollectionReviewPage.tsx
-msgid "Delete {title}"
-msgstr ""
-
 #: src/components/Settings/DownloadClient/index.tsx
 msgid "Delete downloaded data"
 msgstr "刪除已下載資料"
@@ -1196,10 +1192,6 @@ msgstr "刪除賽事檔案"
 #: src/components/Common/MediaLibrarySortControl.tsx
 msgid "Delete Latest"
 msgstr "最晚刪除的優先"
-
-#: src/pages/CollectionReviewPage.tsx
-msgid "Delete selected"
-msgstr ""
 
 #: src/components/Common/MediaLibrarySortControl.tsx
 msgid "Delete Soonest"
@@ -1243,10 +1235,6 @@ msgstr ""
 
 #: src/pages/CollectionReviewPage.tsx
 msgid "Deleted; cleanup failed"
-msgstr ""
-
-#: src/pages/CollectionReviewPage.tsx
-msgid "Deletion failed. Reload the review before trying again."
 msgstr ""
 
 #: src/components/Collection/CollectionDetail/CollectionInfo/index.tsx
@@ -2140,6 +2128,14 @@ msgstr "作業"
 msgid "Karma"
 msgstr "Karma 評分"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Keep {title} forever"
+msgstr ""
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Keep forever"
+msgstr ""
+
 #: src/components/Rules/RuleGroup/AddModal/index.tsx
 msgid "Keep in Maintainerr only"
 msgstr "僅保留於 Maintainerr"
@@ -2221,6 +2217,14 @@ msgstr "不設定則使用預設海報範本"
 #: src/components/Rules/RuleGroup/AddModal/index.tsx
 msgid "Leave unset to use the default title card template"
 msgstr "不設定則使用預設標題卡範本"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Leaving {date}"
+msgstr ""
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Leaving soon"
+msgstr ""
 
 #: src/components/OverlayEditor/PropertiesPanel.tsx
 msgid "left"
@@ -2533,6 +2537,10 @@ msgstr "各執行個體的掛載點"
 msgid "Move down"
 msgstr "向下移動"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Move to Leaving soon"
+msgstr ""
+
 #: src/components/OverlayEditor/LayerPanel.tsx
 msgid "Move up"
 msgstr "向上移動"
@@ -2553,6 +2561,10 @@ msgstr "電影"
 #: src/components/StorageMetrics/index.tsx
 msgid "Movies handled"
 msgstr "已處理電影數"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Moving to Leaving soon..."
+msgstr ""
 
 #: src/components/OverlayEditor/PropertiesPanel.tsx
 msgid "N days text"
@@ -3581,6 +3593,7 @@ msgid "Select {preset}"
 msgstr "選擇 {preset}"
 
 #: src/components/Common/MediaCard/index.tsx
+#: src/pages/CollectionReviewPage.tsx
 msgid "Select {title}"
 msgstr "選擇 {title}"
 
@@ -3676,7 +3689,7 @@ msgid "Selected titles: {count}, total size: {size}"
 msgstr ""
 
 #: src/pages/CollectionReviewPage.tsx
-msgid "Selected titles: {count}, total size: {size}. Run the configured collection action? Deleted files cannot be recovered."
+msgid "Selected titles: {count}, total size: {size}. These titles go to a 'Leaving soon' row for 14 days. Anyone watching one saves it. After that they're deleted, with 7 days to undo."
 msgstr ""
 
 #: src/components/Settings/Emby/index.tsx
@@ -3782,6 +3795,10 @@ msgstr "顯示不相容規則（{skippedRules}）"
 #: src/components/Calendar/index.tsx
 msgid "Show less"
 msgstr "顯示較少"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Show more ({remaining} left)"
+msgstr ""
 
 #: src/components/Rules/RuleGroup/AddModal/index.tsx
 msgid "Show on {mediaServerName} home"

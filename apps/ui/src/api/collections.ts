@@ -170,3 +170,6 @@ export const approveCollectionReview = (id: string, ids: string[]) =>
   PostApiHandler<ReviewApprovalResult>(`/collections/${id}/review/approve`, {
     ids,
   })
+
+export const keepCollectionReviewItems = (id: string, ids: string[]) =>
+  PostApiHandler<void>(`/collections/${id}/review/keep`, { ids })

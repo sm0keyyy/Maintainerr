@@ -530,6 +530,14 @@ export class SeerrApiService {
     return [...(index.get(requestIndexKey(type, tmdbId)) ?? [])];
   }
 
+  /**
+   * Every Seerr user's watchlist, read fresh (never the run-scoped copy), keyed
+   * `movie:<tmdbId>` / `tv:<tmdbId>`. `undefined` when any read fails.
+   */
+  public getFreshWatchlistIndex(): Promise<Map<string, string[]> | undefined> {
+    return this.buildWatchlistIndex();
+  }
+
   private getRequestIndex() {
     return this.getRunScopedIndex(SEERR_REQUESTS_CACHE_KEY, () =>
       this.buildRequestIndex(),

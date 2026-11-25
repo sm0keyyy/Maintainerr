@@ -545,10 +545,6 @@ msgid "Apply date overlays to posters in this collection"
 msgstr "Datumoverlays toepassen op posters in collectie"
 
 #: src/pages/CollectionReviewPage.tsx
-msgid "Applying collection action..."
-msgstr ""
-
-#: src/pages/CollectionReviewPage.tsx
 msgid "Approval requires whole-title Delete in Radarr or Sonarr with list exclusions enabled. Other actions remain disabled."
 msgstr ""
 
@@ -660,7 +656,7 @@ msgid "Bigger"
 msgstr "Groter"
 
 #: src/pages/CollectionReviewPage.tsx
-msgid "Biggest first. Nothing is selected automatically. Titles watched by anyone or added in the last 365 days are protected."
+msgid "Biggest first, movie series together. Nothing is selected automatically. Titles watched or added in the last year, requested in the last year, on a watchlist, partly watched, or kept forever are not listed."
 msgstr ""
 
 #: src/components/OverlayEditor/PropertiesPanel.tsx
@@ -901,17 +897,13 @@ msgstr "Configureer de verbinding met uw Emby-server. Voer de server-URL en een 
 msgid "Configured"
 msgstr "Geconfigureerd"
 
-#: src/pages/CollectionReviewPage.tsx
-msgid "Confirm collection action"
-msgstr ""
-
-#: src/pages/CollectionReviewPage.tsx
-msgid "Confirm delete"
-msgstr ""
-
 #: src/components/Common/MediaActionModal.tsx
 msgid "Confirm Global Exclusion"
 msgstr "Globale uitsluiting bevestigen"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Confirm move"
+msgstr ""
 
 #: src/components/Common/MediaActionModal.tsx
 msgid "Confirm Removal From Every Collection"
@@ -998,6 +990,10 @@ msgstr ""
 msgid "Could not fetch libraries"
 msgstr "Kon bibliotheken niet ophalen"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Could not keep the title. Reload and try again."
+msgstr ""
+
 #: src/components/Services/useServices.tsx
 msgid "Could not load"
 msgstr "Kon niet worden geladen"
@@ -1029,6 +1025,10 @@ msgstr "Kan afleveringen niet laden"
 #: src/components/Common/MediaActionModal.tsx
 msgid "Could not load the seasons"
 msgstr "Kan de seizoenen niet laden"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Could not move the titles. Reload the review before trying again."
+msgstr ""
 
 #: src/components/Rules/RuleGroup/AddModal/CollectionPosterPicker.tsx
 msgid "Could not upload poster - check that the file is a valid image"
@@ -1171,10 +1171,6 @@ msgstr "Standaard titelkaart sjabloon"
 msgid "Delete"
 msgstr "Wissen"
 
-#: src/pages/CollectionReviewPage.tsx
-msgid "Delete {title}"
-msgstr ""
-
 #: src/components/Settings/DownloadClient/index.tsx
 msgid "Delete downloaded data"
 msgstr "Gedownloade gegevens wissen"
@@ -1198,10 +1194,6 @@ msgstr "Evenementsbestand wissen"
 #: src/components/Common/MediaLibrarySortControl.tsx
 msgid "Delete Latest"
 msgstr "Laatste wissen"
-
-#: src/pages/CollectionReviewPage.tsx
-msgid "Delete selected"
-msgstr ""
 
 #: src/components/Common/MediaLibrarySortControl.tsx
 msgid "Delete Soonest"
@@ -1245,10 +1237,6 @@ msgstr ""
 
 #: src/pages/CollectionReviewPage.tsx
 msgid "Deleted; cleanup failed"
-msgstr ""
-
-#: src/pages/CollectionReviewPage.tsx
-msgid "Deletion failed. Reload the review before trying again."
 msgstr ""
 
 #: src/components/Collection/CollectionDetail/CollectionInfo/index.tsx
@@ -2142,6 +2130,14 @@ msgstr "Taken"
 msgid "Karma"
 msgstr "Karma"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Keep {title} forever"
+msgstr ""
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Keep forever"
+msgstr ""
+
 #: src/components/Rules/RuleGroup/AddModal/index.tsx
 msgid "Keep in Maintainerr only"
 msgstr "Alleen in Maintainerr bewaren"
@@ -2223,6 +2219,14 @@ msgstr "Leeg laten om het standaard poster sjabloon te gebruiken"
 #: src/components/Rules/RuleGroup/AddModal/index.tsx
 msgid "Leave unset to use the default title card template"
 msgstr "Leeg laten om het standaard titelkaart sjabloon te gebruiken"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Leaving {date}"
+msgstr ""
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Leaving soon"
+msgstr ""
 
 #: src/components/OverlayEditor/PropertiesPanel.tsx
 msgid "left"
@@ -2535,6 +2539,10 @@ msgstr "Koppelingen per instantie"
 msgid "Move down"
 msgstr "Naar beneden"
 
+#: src/pages/CollectionReviewPage.tsx
+msgid "Move to Leaving soon"
+msgstr ""
+
 #: src/components/OverlayEditor/LayerPanel.tsx
 msgid "Move up"
 msgstr "Naar boven"
@@ -2555,6 +2563,10 @@ msgstr "Films"
 #: src/components/StorageMetrics/index.tsx
 msgid "Movies handled"
 msgstr "Verwerkte films"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Moving to Leaving soon..."
+msgstr ""
 
 #: src/components/OverlayEditor/PropertiesPanel.tsx
 msgid "N days text"
@@ -3583,6 +3595,7 @@ msgid "Select {preset}"
 msgstr "Selecteer {preset}"
 
 #: src/components/Common/MediaCard/index.tsx
+#: src/pages/CollectionReviewPage.tsx
 msgid "Select {title}"
 msgstr "Selecteer {title}"
 
@@ -3678,7 +3691,7 @@ msgid "Selected titles: {count}, total size: {size}"
 msgstr ""
 
 #: src/pages/CollectionReviewPage.tsx
-msgid "Selected titles: {count}, total size: {size}. Run the configured collection action? Deleted files cannot be recovered."
+msgid "Selected titles: {count}, total size: {size}. These titles go to a 'Leaving soon' row for 14 days. Anyone watching one saves it. After that they're deleted, with 7 days to undo."
 msgstr ""
 
 #: src/components/Settings/Emby/index.tsx
@@ -3784,6 +3797,10 @@ msgstr "Incompatibele regels weergeven ({skippedRules})"
 #: src/components/Calendar/index.tsx
 msgid "Show less"
 msgstr "Minder weergeven"
+
+#: src/pages/CollectionReviewPage.tsx
+msgid "Show more ({remaining} left)"
+msgstr ""
 
 #: src/components/Rules/RuleGroup/AddModal/index.tsx
 msgid "Show on {mediaServerName} home"
