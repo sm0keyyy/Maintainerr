@@ -11,6 +11,7 @@ import {
 import {
   BadRequestException,
   ConflictException,
+  HttpException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -53,6 +54,20 @@ import {
 } from './review-list';
 
 const REVIEW_WINDOW_MS = 365 * 86400000;
+
+/**
+ * A final check that failed for a reason the next day cannot change. `saved`:
+ * someone watched, is playing or kept the title; `not-deleted`: the bound arr
+ * target or its Plex mapping changed. Any other error is transient.
+ */
+export class ReviewTargetRefused extends Error {
+  constructor(
+    readonly outcome: 'saved' | 'not-deleted',
+    message: string,
+  ) {
+    super(message);
+  }
+}
 // Identity, paths and sizes change rarely, and approve() re-reads them fresh.
 const INVENTORY_TTL_MS = 10 * 60000;
 const ARR_TTL_MS = 10 * 60000;
@@ -139,7 +154,10 @@ export class CollectionReviewService {
       providerId <= 0 ||
       (cached != null && cached !== providerId)
     )
-      throw new Error('Plex and membership identity disagree');
+      throw new ReviewTargetRefused(
+        'not-deleted',
+        'Plex and membership identity disagree',
+      );
     let id: number;
     let path: string;
     let date: string;
@@ -148,16 +166,24 @@ export class CollectionReviewService {
       settingsId = collection.radarrSettingsId;
       const api = await this.servarr.getRadarrApiClient(settingsId);
       const entry = await api.getMovieByTmdbId(providerId);
+      if (entry === undefined) throw new Error('Radarr unread');
       if (!entry || entry.tmdbId !== providerId)
-        throw new Error('Radarr identity mismatch');
+        throw new ReviewTargetRefused(
+          'not-deleted',
+          'Radarr identity mismatch',
+        );
       ({ id, path } = entry);
       date = entry.movieFile?.dateAdded;
     } else if (!movie && collection.sonarrSettingsId) {
       settingsId = collection.sonarrSettingsId;
       const api = await this.servarr.getSonarrApiClient(settingsId);
       const entry = await api.getSeriesByTvdbId(providerId);
+      if (entry === undefined) throw new Error('Sonarr unread');
       if (!entry || entry.tvdbId !== providerId)
-        throw new Error('Sonarr identity mismatch');
+        throw new ReviewTargetRefused(
+          'not-deleted',
+          'Sonarr identity mismatch',
+        );
       ({ id, path } = entry);
       date = entry.added;
     } else throw new Error('Missing review arr configuration');
@@ -204,7 +230,8 @@ export class CollectionReviewService {
     );
   }
 
-  private async inventory(collection: Collection): Promise<MediaItem[]> {
+  /** Every current Plex movie or show, read fresh from Plex. */
+  async inventory(collection: Collection): Promise<MediaItem[]> {
     const type = collection.type === 'movie' ? 'movie' : 'show';
     const ids = this.storedWatch.getItemIds(type);
     const items: MediaItem[] = [];
@@ -253,10 +280,16 @@ export class CollectionReviewService {
       if (!sameProvider && !samePath) continue;
       affectedIds.push(item.id);
       if (isMediaItemExcluded(cascade, item))
-        throw new Error('Affected Plex item is excluded');
+        throw new ReviewTargetRefused(
+          'saved',
+          'Affected Plex item is excluded',
+        );
     }
     if (!affectedIds.includes(row.mediaServerId))
-      throw new Error('Selected Plex item does not map to target');
+      throw new ReviewTargetRefused(
+        'not-deleted',
+        'Selected Plex item does not map to target',
+      );
 
     // Discovery is complete. Only bounded target reads follow, never another
     // library scan between these safety checks and the arr delete request.
@@ -268,8 +301,16 @@ export class CollectionReviewService {
     }
     const lastWatchedByItem = new Map<string, number>();
     for (const item of affected) {
-      if (item.type !== collection.type || isMediaItemExcluded(cascade, item))
-        throw new Error('Affected Plex item changed or is excluded');
+      if (item.type !== collection.type)
+        throw new ReviewTargetRefused(
+          'not-deleted',
+          'Affected Plex item changed type',
+        );
+      if (isMediaItemExcluded(cascade, item))
+        throw new ReviewTargetRefused(
+          'saved',
+          'Affected Plex item is excluded',
+        );
       const watchers = await this.watchers(collection, item);
       lastWatchedByItem.set(
         item.id,
@@ -290,10 +331,13 @@ export class CollectionReviewService {
       fresh.kind !== bound.kind ||
       fresh.settingsId !== bound.settingsId
     )
-      throw new Error('Canonical arr target changed');
+      throw new ReviewTargetRefused(
+        'not-deleted',
+        'Canonical arr target changed',
+      );
     const cutoff = Date.now() - REVIEW_WINDOW_MS;
     if (new Date(fresh.addedAt).getTime() >= cutoff)
-      throw new Error('Target is too recent');
+      throw new ReviewTargetRefused('not-deleted', 'Target is too recent');
     // History/user lookups can await network I/O. Re-read all affected stored
     // dates together after those reads and the fresh arr-age lookup finish.
     for (const item of affected) {
@@ -303,12 +347,17 @@ export class CollectionReviewService {
           .getWatchers(item.id, item.type)
           .map((watcher) => new Date(watcher.lastWatchedAt).getTime()),
       );
-      if (!Number.isFinite(lastWatched) || lastWatched >= cutoff)
-        throw new Error('Affected Plex item was watched recently');
+      if (!Number.isFinite(lastWatched))
+        throw new Error('Unread Plex watch date');
+      if (lastWatched >= cutoff)
+        throw new ReviewTargetRefused(
+          'saved',
+          'Affected Plex item was watched recently',
+        );
     }
     const playing = await this.playing();
     if (affectedIds.some((id) => playing.has(id)))
-      throw new Error('Affected Plex item is playing');
+      throw new ReviewTargetRefused('saved', 'Affected Plex item is playing');
     return affectedIds;
   }
 
@@ -447,9 +496,10 @@ export class CollectionReviewService {
   /**
    * M18: Seerr requests from the last year, and every Plex and Seerr
    * watchlist. Read fresh each time; an unreadable source fails the list
-   * rather than hiding a protection.
+   * rather than hiding a protection. Without Seerr the list fails too, unless
+   * REVIEW_WITHOUT_SEERR=true says this server has none.
    */
-  private async reviewProtections(cutoff: number): Promise<ReviewProtections> {
+  async reviewProtections(cutoff: number): Promise<ReviewProtections> {
     const protections: ReviewProtections = {
       requested: new Set(),
       requestedTvdb: new Set(),
@@ -457,7 +507,12 @@ export class CollectionReviewService {
       seerrWatchlist: new Set(),
     };
     const readSeerr = async () => {
-      if (!this.seerr.isConfigured()) return;
+      if (!this.seerr.isConfigured()) {
+        if (process.env.REVIEW_WITHOUT_SEERR === 'true') return;
+        throw new Error(
+          'Seerr is not configured, so requests and Seerr watchlists are unread. Configure Seerr, or set REVIEW_WITHOUT_SEERR=true if this server has none.',
+        );
+      }
       const [requests, watchlists] = await Promise.all([
         this.seerr.getRequests(),
         this.seerr.getFreshWatchlistIndex(),
@@ -478,6 +533,11 @@ export class CollectionReviewService {
     const readPlex = async () => {
       const users = await this.plex.getCorrectedUsers();
       const readable = users.filter((user) => user.uuid);
+      for (const user of users)
+        if (!user.uuid)
+          this.logger.warn(
+            `Plex watchlist of ${user.username} skipped: plex.tv has no id for this user`,
+          );
       if (users.length > 0 && readable.length === 0)
         throw new Error('Plex watchlists unread: no plex.tv user ids');
       // The community client caches answers for minutes; a title added to a
@@ -491,6 +551,10 @@ export class CollectionReviewService {
         if (watchlist === undefined)
           throw new Error(`Plex watchlist of ${user.username} unread`);
         // null: Plex does not share this user's watchlist (Seerr may).
+        if (watchlist === null)
+          this.logger.warn(
+            `Plex watchlist of ${user.username} skipped: plex.tv does not share it`,
+          );
         for (const entry of watchlist ?? [])
           protections.plexWatchlist.add(entry.id);
       });
@@ -589,7 +653,8 @@ export class CollectionReviewService {
 
   /**
    * Keep forever: a global exclusion, so no rule, review or approval acts on
-   * the title again. Remove it from Maintainerr's exclusions to undo.
+   * the title again, and any pending Leaving soon approval is cancelled.
+   * Remove it from Maintainerr's exclusions to undo.
    */
   async keep(id: number, ids: string[]): Promise<void> {
     // Same guard as the stock exclusion endpoint: never race a rule run.
@@ -626,6 +691,13 @@ export class CollectionReviewService {
           ruleGroupId: Not(IsNull()),
         });
         this.logger.log(`Review keep forever: global exclusion for ${itemId}`);
+        for (const row of await this.leavingSoon.cancelTitle(
+          itemId,
+          'Kept forever before its date',
+        ))
+          this.logger.log(
+            `Review keep forever: cancelled Leaving soon for ${row.title}`,
+          );
         try {
           await this.collectionService.CollectionLogRecordForChild(
             itemId,
@@ -702,27 +774,42 @@ export class CollectionReviewService {
         throw new ConflictException('Collection membership changed');
       const entries: LeavingSoonEntry[] = [];
       const canonical = new Set<string>();
+      // One fresh Plex inventory for every title in this approval.
+      const inventory = await this.inventory(collection);
       for (const itemId of ids) {
         const row = byId.get(itemId)!;
-        const [item] = await this.freshItems([itemId]);
-        const target = await this.target(collection, row, item);
-        const key = `${target.kind}:${target.settingsId}:${target.id}`;
-        if (canonical.has(key))
-          throw new BadRequestException(
-            'Selection contains duplicate arr targets',
+        const candidate = review.candidates.find(
+          (entry) => entry.id === itemId,
+        )!;
+        try {
+          const [item] = await this.freshItems([itemId]);
+          const target = await this.target(collection, row, item);
+          const key = `${target.kind}:${target.settingsId}:${target.id}`;
+          if (canonical.has(key))
+            throw new BadRequestException(
+              'Selection contains duplicate arr targets',
+            );
+          canonical.add(key);
+          const plexIds = await this.validateTarget(
+            collection,
+            row,
+            target,
+            inventory,
           );
-        canonical.add(key);
-        const plexIds = await this.validateTarget(collection, row, target);
-        entries.push({
-          mediaServerId: itemId,
-          title: item.title,
-          year: item.year ?? null,
-          sizeBytes: review.candidates.find(
-            (candidate) => candidate.id === itemId,
-          )!.sizeBytes,
-          plexIds,
-          target,
-        });
+          entries.push({
+            mediaServerId: itemId,
+            title: item.title,
+            year: item.year ?? null,
+            sizeBytes: candidate.sizeBytes,
+            plexIds,
+            target,
+          });
+        } catch (error) {
+          if (error instanceof HttpException) throw error;
+          throw new ConflictException(
+            `"${candidate.title}" failed its fresh check (${error instanceof Error ? error.message : String(error)}). Reload the review.`,
+          );
+        }
       }
       const scheduled = await this.leavingSoon.schedule(collection, entries);
       const result: ReviewApprovalResult = { items: [] };

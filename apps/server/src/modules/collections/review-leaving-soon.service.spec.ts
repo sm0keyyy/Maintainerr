@@ -225,6 +225,29 @@ describe('Leaving soon queue', () => {
     expect(table.rows[0].status).toBe('deleting');
   });
 
+  it('cancels every pending approval of a title kept forever', async () => {
+    await service.schedule(collection, [entry('2'), entry('4')]);
+    const cancelled = await service.cancelTitle('2', 'Kept forever');
+    expect(cancelled.map((row) => row.mediaServerId)).toEqual(['2']);
+    expect(table.rows.map((row) => [row.mediaServerId, row.status])).toEqual([
+      ['2', 'cancelled'],
+      ['4', 'pending'],
+    ]);
+    expect(server.removeFromCollection).toHaveBeenCalledWith('9001', '2');
+  });
+
+  it('names a title whose rollback failed', async () => {
+    server.addToCollection
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('refused'));
+    table.repo.update.mockRejectedValueOnce(new Error('database locked'));
+    await expect(
+      service.schedule(collection, [entry('2'), entry('4')]),
+    ).rejects.toThrow(
+      'refused; still pending after a failed rollback: Movie 2. Cancel them on the Leaving soon list.',
+    );
+  });
+
   it('removes Plex Leaving soon children without an active approval', async () => {
     const [kept] = await service.schedule(collection, [entry('2')]);
     server.getCollectionChildren.mockResolvedValue([

@@ -159,6 +159,32 @@ export class PlexStoredWatchService {
     }
   }
 
+  /** Every media file Plex holds for these movies or shows, read-only. */
+  getPartFiles(itemIds: string[]): string[] {
+    const path = process.env.PLEX_DATABASE_PATH;
+    if (!path) throw new Error('PLEX_DATABASE_PATH is required for Plex files');
+    if (itemIds.length === 0) return [];
+    const db = new DatabaseSync(path, { readOnly: true });
+    try {
+      db.exec('PRAGMA query_only = ON');
+      const marks = itemIds.map(() => '?').join(',');
+      return db
+        .prepare(
+          `SELECT DISTINCT p.file AS file
+          FROM metadata_items m
+          LEFT JOIN metadata_items season ON season.parent_id = m.id AND season.deleted_at IS NULL
+          LEFT JOIN metadata_items ep ON ep.parent_id = season.id AND ep.deleted_at IS NULL
+          JOIN media_items mi ON mi.metadata_item_id = COALESCE(ep.id, m.id) AND mi.deleted_at IS NULL
+          JOIN media_parts p ON p.media_item_id = mi.id AND p.deleted_at IS NULL
+          WHERE m.id IN (${marks}) AND m.deleted_at IS NULL AND p.file IS NOT NULL`,
+        )
+        .all(...itemIds)
+        .map((row) => z.string().parse(row.file));
+    } finally {
+      db.close();
+    }
+  }
+
   getWatchers(itemId: string, type: MediaItemType): ReviewWatcher[] {
     const path = process.env.PLEX_DATABASE_PATH;
     if (!path)

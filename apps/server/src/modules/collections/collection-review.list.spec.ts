@@ -23,6 +23,7 @@ import { CollectionReviewService } from './collection-review.service';
 import { CollectionsService } from './collections.service';
 import { Collection } from './entities/collection.entities';
 import { CollectionMedia } from './entities/collection_media.entities';
+import { ReviewLeavingSoonService } from './review-leaving-soon.service';
 
 const old = '2020-01-01T00:00:00.000Z';
 const recent = new Date(Date.now() - 30 * 86400000).toISOString();
@@ -47,6 +48,8 @@ describe('Collection review list', () => {
   let plexWatchlists: Record<string, { id: string }[] | null | undefined>;
   let radarrCollections: Record<number, { tmdbId: number; title: string }>;
   let heights: Record<number, number>;
+  let legacyGuid: Set<number>;
+  let leavingSoon: Mocked<ReviewLeavingSoonService>;
   let getMovies: jest.Mock;
   let getMovieByTmdbId: jest.Mock;
   const collection = Object.assign(
@@ -71,6 +74,7 @@ describe('Collection review list', () => {
     plexWatchlists = {};
     radarrCollections = {};
     heights = {};
+    legacyGuid = new Set();
     const { unit, unitRef } = await TestBed.solitary(
       CollectionReviewService,
     ).compile();
@@ -120,7 +124,9 @@ describe('Collection review list', () => {
           type: 'movie',
           title: `Movie ${id}`,
           librarySectionID: 1,
-          guid: `plex://movie/agent${id}`,
+          guid: legacyGuid.has(Number(id))
+            ? `com.plexapp.agents.imdb://tt000${id}?lang=en`
+            : `plex://movie/agent${id}`,
           Guid: [{ id: `tmdb://${id}` }],
           addedAt: new Date(old).getTime() / 1000,
           Media: [
@@ -186,6 +192,8 @@ describe('Collection review list', () => {
       return seerrWatchlist;
     });
     unitRef.get(ExecutionLockService).tryAcquire.mockReturnValue(jest.fn());
+    leavingSoon = unitRef.get(ReviewLeavingSoonService);
+    leavingSoon.cancelTitle.mockResolvedValue([]);
     unitRef
       .get(CollectionsService)
       .CollectionLogRecordForChild.mockResolvedValue(undefined);
@@ -299,6 +307,15 @@ describe('Collection review list', () => {
     expect(await listed()).toEqual(['4', '3', '2', '1']);
   });
 
+  it('keeping a title forever cancels its pending Leaving soon approval', async () => {
+    exclusions.findOne.mockResolvedValue(null);
+    await service.keep(7, ['5']);
+    expect(leavingSoon.cancelTitle).toHaveBeenCalledWith(
+      '5',
+      'Kept forever before its date',
+    );
+  });
+
   it('refuses to keep a title outside the collection', async () => {
     await expect(service.keep(7, ['99'])).rejects.toThrow();
     expect(exclusions.save).not.toHaveBeenCalled();
@@ -376,5 +393,29 @@ describe('Collection review list', () => {
     console.log(
       `review list, 1300 titles, 25 ms/call: cold ${cold.toFixed(0)} ms, warm ${warm.toFixed(0)} ms`,
     );
+  });
+
+  it('fails the list when Seerr is not configured, unless REVIEW_WITHOUT_SEERR says there is none', async () => {
+    seerr.isConfigured.mockReturnValue(false);
+    await expect(service.list(7)).rejects.toThrow('REVIEW_WITHOUT_SEERR');
+    process.env.REVIEW_WITHOUT_SEERR = 'true';
+    try {
+      expect(await listed()).toEqual(['5', '4', '3', '2', '1']);
+      expect(seerr.getRequests).not.toHaveBeenCalled();
+    } finally {
+      delete process.env.REVIEW_WITHOUT_SEERR;
+    }
+  });
+
+  it('marks a legacy-agent title unverified instead of matching it against watchlists', async () => {
+    legacyGuid.add(3);
+    const review = await service.list(7);
+    expect(review.candidates.map((item) => item.id)).toEqual([
+      '5',
+      '4',
+      '2',
+      '1',
+    ]);
+    expect(review.unavailableIds).toEqual(['3']);
   });
 });

@@ -109,6 +109,8 @@ export interface RadarrMovieFile {
   size: number;
   mediaInfo: RadarrMediaInfo;
   path: string;
+  /** Path below the movie folder, e.g. `Movie (1999).mkv`. */
+  relativePath?: string;
   qualityCutoffNotMet: boolean;
 }
 

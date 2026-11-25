@@ -331,6 +331,24 @@ export abstract class ServarrApi<QueueItemAppendT> extends ExternalApiService {
     }
   }
 
+  /**
+   * The Recycling Bin folder and its cleanup days from the media-management
+   * settings, read fresh. Undefined when the settings could not be read.
+   */
+  public async getRecycleBin(): Promise<
+    { path: string; cleanupDays: number } | undefined
+  > {
+    const config = await this.getWithoutCache<{
+      recycleBin?: string | null;
+      recycleBinCleanupDays?: number | null;
+    }>('/config/mediamanagement', { timeout: SLOW_INSTANCE_TIMEOUT_MS });
+    if (!config) return undefined;
+    return {
+      path: config.recycleBin?.trim() ?? '',
+      cleanupDays: Number(config.recycleBinCleanupDays),
+    };
+  }
+
   protected async runReviewDelete(command: string): Promise<ReviewArrOutcome> {
     try {
       await this.delete(

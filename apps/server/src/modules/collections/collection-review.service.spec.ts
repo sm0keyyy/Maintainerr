@@ -12,6 +12,7 @@ import {
 } from './review-leaving-soon.service';
 import { PlexApiService } from '../api/plex-api/plex-api.service';
 import { PlexStoredWatchService } from '../api/plex-api/plex-stored-watch.service';
+import { SeerrApiService } from '../api/seerr-api/seerr-api.service';
 import { ServarrService } from '../api/servarr-api/servarr.service';
 import { ExecutionLockService } from '../tasks/execution-lock.service';
 import {
@@ -116,6 +117,8 @@ describe('Collection review', () => {
           ratingKey: id,
           type: 'movie',
           librarySectionID: 1,
+          title: `Movie ${id}`,
+          guid: `plex://movie/agent${id}`,
           Guid: [{ id: `tmdb://${id}` }],
           addedAt: new Date(old).getTime() / 1000,
           Media: [
@@ -167,6 +170,10 @@ describe('Collection review', () => {
     } as unknown as Awaited<ReturnType<ServarrService['getRadarrApiClient']>>; // Network client boundary.
     unitRef.get(ServarrService).getRadarrApiClient.mockResolvedValue(radarr);
     unitRef.get(ExecutionLockService).tryAcquire.mockReturnValue(jest.fn());
+    const seerr = unitRef.get(SeerrApiService);
+    seerr.isConfigured.mockReturnValue(true);
+    seerr.getRequests.mockResolvedValue([]);
+    seerr.getFreshWatchlistIndex.mockResolvedValue(new Map());
   });
   it('lists largest first with size, IMDb rating, added date, last watched and each watcher', async () => {
     const result = await service.list(7);
@@ -228,6 +235,21 @@ describe('Collection review', () => {
     );
     leavingSoon.schedule.mockClear();
     await expect(service.approve(7, ['1', 'unknown'])).rejects.toThrow();
+    expect(leavingSoon.schedule).not.toHaveBeenCalled();
+  });
+  it('names the title whose fresh per-title check fails', async () => {
+    let reads = 0;
+    getMovie.mockImplementation(async (id: number) => ({
+      id,
+      tmdbId: id,
+      path: `/movies/${id}`,
+      // The list reads every movie once; approve's own reads of 4 see a
+      // replacement file.
+      movieFile: { dateAdded: id === 4 && ++reads > 1 ? recent : old },
+    }));
+    await expect(service.approve(7, ['2', '4'])).rejects.toThrow(
+      /"Movie 4" failed its fresh check/,
+    );
     expect(leavingSoon.schedule).not.toHaveBeenCalled();
   });
   it('refuses a title that is already leaving soon', async () => {

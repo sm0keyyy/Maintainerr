@@ -198,29 +198,18 @@ export function evaluateReviewRow(input: ReviewRowInput): ReviewRowOutcome {
     if (watched >= cutoff) return { kind: 'protected', reason: 'recent-watch' };
     if (state?.inProgress) return { kind: 'protected', reason: 'in-progress' };
   }
-  const seerrType = movie ? 'movie' : 'tv';
   const tmdbIds = new Set<number>();
   if (target.tmdbId) tmdbIds.add(target.tmdbId);
-  for (const copy of affected)
-    for (const id of copy.providerIds.tmdb ?? [])
-      if (Number(id) > 0) tmdbIds.add(Number(id));
-  if (
-    [...tmdbIds].some((id) =>
-      protections.requested.has(`${seerrType}:${id}`),
-    ) ||
-    (!movie && protections.requestedTvdb.has(providerId))
-  )
-    return { kind: 'protected', reason: 'seerr-request' };
-  if (
-    [...tmdbIds].some((id) =>
-      protections.seerrWatchlist.has(`${seerrType}:${id}`),
-    ) ||
-    affected.some((copy) => {
-      const agentId = PlexMapper.extractPlexAgentId(copy.guid);
-      return agentId !== undefined && protections.plexWatchlist.has(agentId);
-    })
-  )
-    return { kind: 'protected', reason: 'watchlist' };
+  const hit = requestOrWatchlistHit(
+    protections,
+    type,
+    tmdbIds,
+    providerId,
+    affected,
+  );
+  // A legacy-agent copy cannot be matched to a Plex watchlist: unverified.
+  if (hit === 'unverified') return { kind: 'unavailable' };
+  if (hit) return { kind: 'protected', reason: hit };
 
   const sizeBytes = movie
     ? item.mediaSources.reduce(
@@ -254,6 +243,41 @@ export function evaluateReviewRow(input: ReviewRowInput): ReviewRowOutcome {
     candidate,
     needsRating: target.imdbRating === null,
   };
+}
+
+/**
+ * M18 Seerr request (inside the window) and watchlist protection of one arr
+ * target and its Plex copies. `unverified` when a copy has no Plex agent id
+ * (legacy agent), so its Plex watchlist state cannot be read.
+ */
+export function requestOrWatchlistHit(
+  protections: ReviewProtections,
+  type: 'movie' | 'show',
+  tmdbIds: Set<number>,
+  providerId: number,
+  copies: MediaItem[],
+): 'seerr-request' | 'watchlist' | 'unverified' | null {
+  const seerrType = type === 'movie' ? 'movie' : 'tv';
+  const ids = new Set(tmdbIds);
+  for (const copy of copies)
+    for (const id of copy.providerIds.tmdb ?? [])
+      if (Number(id) > 0) ids.add(Number(id));
+  if (
+    [...ids].some((id) => protections.requested.has(`${seerrType}:${id}`)) ||
+    (type === 'show' && protections.requestedTvdb.has(providerId))
+  )
+    return 'seerr-request';
+  if (
+    [...ids].some((id) => protections.seerrWatchlist.has(`${seerrType}:${id}`))
+  )
+    return 'watchlist';
+  let unverified = false;
+  for (const copy of copies) {
+    const agentId = PlexMapper.extractPlexAgentId(copy.guid);
+    if (agentId === undefined) unverified = true;
+    else if (protections.plexWatchlist.has(agentId)) return 'watchlist';
+  }
+  return unverified ? 'unverified' : null;
 }
 
 /** Runs `fn` over `items` with at most `limit` in flight. */

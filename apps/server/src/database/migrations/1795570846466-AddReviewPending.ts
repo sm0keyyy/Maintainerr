@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddReviewPending1795568963846 implements MigrationInterface {
-  name = 'AddReviewPending1795568963846';
+export class AddReviewPending1795570846466 implements MigrationInterface {
+  name = 'AddReviewPending1795570846466';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
@@ -26,7 +26,8 @@ export class AddReviewPending1795568963846 implements MigrationInterface {
                 "status" varchar NOT NULL DEFAULT ('pending'),
                 "resolvedAt" datetime,
                 "note" varchar,
-                "seerr" varchar
+                "seerr" varchar,
+                "verifiedAt" datetime
             )
         `);
     await queryRunner.query(`
@@ -64,6 +65,7 @@ export class AddReviewPending1795568963846 implements MigrationInterface {
                 "resolvedAt" datetime,
                 "note" varchar,
                 "seerr" varchar,
+                "verifiedAt" datetime,
                 CONSTRAINT "FK_bcd3491cf2f301ad0d1b77a815a" FOREIGN KEY ("collectionId") REFERENCES "collection" ("id") ON DELETE CASCADE ON UPDATE NO ACTION
             )
         `);
@@ -89,7 +91,8 @@ export class AddReviewPending1795568963846 implements MigrationInterface {
                     "status",
                     "resolvedAt",
                     "note",
-                    "seerr"
+                    "seerr",
+                    "verifiedAt"
                 )
             SELECT "id",
                 "collectionId",
@@ -111,7 +114,8 @@ export class AddReviewPending1795568963846 implements MigrationInterface {
                 "status",
                 "resolvedAt",
                 "note",
-                "seerr"
+                "seerr",
+                "verifiedAt"
             FROM "review_pending"
         `);
     await queryRunner.query(`
@@ -162,7 +166,8 @@ export class AddReviewPending1795568963846 implements MigrationInterface {
                 "status" varchar NOT NULL DEFAULT ('pending'),
                 "resolvedAt" datetime,
                 "note" varchar,
-                "seerr" varchar
+                "seerr" varchar,
+                "verifiedAt" datetime
             )
         `);
     await queryRunner.query(`
@@ -187,7 +192,8 @@ export class AddReviewPending1795568963846 implements MigrationInterface {
                     "status",
                     "resolvedAt",
                     "note",
-                    "seerr"
+                    "seerr",
+                    "verifiedAt"
                 )
             SELECT "id",
                 "collectionId",
@@ -209,7 +215,8 @@ export class AddReviewPending1795568963846 implements MigrationInterface {
                 "status",
                 "resolvedAt",
                 "note",
-                "seerr"
+                "seerr",
+                "verifiedAt"
             FROM "temporary_review_pending"
         `);
     await queryRunner.query(`

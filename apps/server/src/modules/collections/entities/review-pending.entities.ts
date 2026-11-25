@@ -93,4 +93,8 @@ export class ReviewPending {
 
   @Column({ type: 'varchar', nullable: true })
   seerr: ReviewSeerrOutcome | null;
+
+  /** When a deleted row was checked gone from Plex; null until then. */
+  @Column({ type: 'datetime', nullable: true })
+  verifiedAt: Date | null;
 }

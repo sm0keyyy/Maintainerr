@@ -1,5 +1,6 @@
 import {
   ECollectionLogType,
+  MediaItem,
   ReviewArrOutcome,
   ReviewDeletionResult,
   ReviewDeletionStatus,
@@ -12,8 +13,13 @@ import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { allowsReviewDeletion, ReviewTarget } from '../actions/review-deletion';
+import {
+  PlexStoredWatchService,
+  StoredReviewSnapshot,
+} from '../api/plex-api/plex-stored-watch.service';
 import { PlexApiService } from '../api/plex-api/plex-api.service';
 import { SeerrApiService } from '../api/seerr-api/seerr-api.service';
+import { ServarrService } from '../api/servarr-api/servarr.service';
 import { MaintainerrLogger } from '../logging/logs.service';
 import { MetadataService } from '../metadata/metadata.service';
 import { ArrLookupCache } from '../rules/helpers/arr-lookup-cache';
@@ -22,12 +28,16 @@ import {
   RULES_COLLECTIONS_EXECUTION_LOCK_KEY,
 } from '../tasks/execution-lock.service';
 import { CollectionHandler } from './collection-handler';
-import { CollectionReviewService } from './collection-review.service';
+import {
+  CollectionReviewService,
+  ReviewTargetRefused,
+} from './collection-review.service';
 import { CollectionsService } from './collections.service';
 import { Collection } from './entities/collection.entities';
 import { CollectionMedia } from './entities/collection_media.entities';
 import { ReviewPending } from './entities/review-pending.entities';
 import { ReviewLeavingSoonService } from './review-leaving-soon.service';
+import { requestOrWatchlistHit, ReviewProtections } from './review-list';
 import { ReviewWatchActivityService } from './review-watch-activity.service';
 
 export interface ReviewJobLine {
@@ -39,20 +49,49 @@ export interface ReviewJobSummary {
   ran: boolean;
   saved: ReviewJobLine[];
   deleted: ReviewJobLine[];
+  cleanupFailed: ReviewJobLine[];
   notDeleted: ReviewJobLine[];
+  uncertain: ReviewJobLine[];
   waiting: ReviewJobLine[];
 }
+
+/** Days the arr Recycling Bin keeps deleted files (M21). */
+export const REVIEW_RECYCLE_DAYS = 7;
+const REVIEW_WINDOW_MS = 365 * 86400000;
 
 const errorText = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
 /**
- * Runs the Plex "Leaving soon" queue once a day. A pending title that anyone
- * watched, started or is playing since its approval is saved. A title still
- * pending at its date is deleted through Radarr or Sonarr with its files and
- * without an import-list exclusion; its Seerr entry is cleared, Plex rescans
- * the folder, and the outcome is audited. Nothing else is ever deleted here: a
- * review collection's members without a pending row are never touched.
+ * Reads shared by every title of one run, each made at most once: the Plex
+ * inventory, stored watch state, M18 protections, arr recycle-bin settings and
+ * the Leaving soon children. A failed read stays failed for the run.
+ */
+class RunReads {
+  private readonly reads = new Map<string, Promise<unknown>>();
+
+  get<T>(key: string, read: () => Promise<T> | T): Promise<T> {
+    let pending = this.reads.get(key);
+    if (pending === undefined) {
+      pending = Promise.resolve().then(read);
+      // Mark it handled here; each caller still sees the rejection.
+      pending.catch(() => undefined);
+      this.reads.set(key, pending);
+    }
+    return pending as Promise<T>;
+  }
+}
+
+/**
+ * Runs the Plex "Leaving soon" queue once a day. Each run first settles what
+ * earlier runs left: an interrupted delete becomes `uncertain`, and a delete
+ * whose title Plex still lists becomes `deleted-with-cleanup-failure`. Then a
+ * pending title that anyone watched, started or is playing since approval is
+ * saved. A title still pending at its date is checked again (still in Leaving
+ * soon, M18 protections, identity, age, watch, sessions, recycle bin) and
+ * deleted through Radarr or Sonarr with its files and without an import-list
+ * exclusion; its Seerr entry is cleared, Plex rescans the folder, and the
+ * outcome is audited. Nothing else is ever deleted here.
  */
 @Injectable()
 export class ReviewDeletionJobService {
@@ -64,9 +103,11 @@ export class ReviewDeletionJobService {
     private readonly leavingSoon: ReviewLeavingSoonService,
     private readonly review: CollectionReviewService,
     private readonly activity: ReviewWatchActivityService,
+    private readonly storedWatch: PlexStoredWatchService,
     private readonly plex: PlexApiService,
     private readonly handler: CollectionHandler,
     private readonly seerr: SeerrApiService,
+    private readonly servarr: ServarrService,
     private readonly metadata: MetadataService,
     private readonly collectionService: CollectionsService,
     private readonly executionLock: ExecutionLockService,
@@ -90,7 +131,9 @@ export class ReviewDeletionJobService {
       ran: false,
       saved: [],
       deleted: [],
+      cleanupFailed: [],
       notDeleted: [],
+      uncertain: [],
       waiting: [],
     };
     const release = this.executionLock.tryAcquire(
@@ -104,6 +147,9 @@ export class ReviewDeletionJobService {
     }
     try {
       summary.ran = true;
+      const reads = new RunReads();
+      await this.settleInterrupted(summary);
+      await this.verifyDeleted(reads, now, summary);
       let playing: Set<string> | null = null;
       try {
         playing = await this.playing();
@@ -114,7 +160,7 @@ export class ReviewDeletionJobService {
       }
       for (const row of await this.leavingSoon.pendingRows()) {
         try {
-          await this.process(row, now, playing, summary);
+          await this.process(row, now, playing, reads, summary);
         } catch (error) {
           this.logger.error(
             `Leaving soon title ${row.id} (${row.title}) failed: ${errorText(error)}`,
@@ -130,10 +176,112 @@ export class ReviewDeletionJobService {
     }
   }
 
+  /**
+   * A row still `deleting` at the start of a run was cut off mid-delete (a
+   * crash or restart): whether the arr request went out is unknown.
+   */
+  private async settleInterrupted(summary: ReviewJobSummary): Promise<void> {
+    for (const row of await this.leavingSoon.interruptedRows()) {
+      const arr = row.arrService === 'radarr' ? 'Radarr' : 'Sonarr';
+      const note = `Interrupted while deleting; check ${arr} and Plex by hand before acting`;
+      if (
+        !(await this.leavingSoon.transition(row, 'deleting', 'uncertain', {
+          note,
+        }))
+      )
+        continue;
+      summary.uncertain.push({ title: row.title, detail: note });
+      const collection = await this.collections.findOne({
+        where: { id: row.collectionId },
+      });
+      if (collection)
+        await this.record(collection, {
+          ...this.identity(row),
+          status: 'uncertain',
+          providerId: row.providerId,
+          path: row.path,
+          at: new Date().toISOString(),
+        });
+    }
+  }
+
+  /**
+   * Every Plex id of a delete from an earlier run must be gone from Plex.
+   * One that remains means the files were not removed (or Plex has not caught
+   * up): the row becomes `deleted-with-cleanup-failure`.
+   */
+  private async verifyDeleted(
+    reads: RunReads,
+    now: Date,
+    summary: ReviewJobSummary,
+  ): Promise<void> {
+    for (const row of await this.leavingSoon.unverifiedDeletedRows()) {
+      if (row.resolvedAt && new Date(row.resolvedAt).getTime() >= now.getTime())
+        continue;
+      const type = row.arrService === 'radarr' ? 'movie' : 'show';
+      let live: Set<string>;
+      try {
+        live = await reads.get(
+          `live:${type}`,
+          () => new Set(this.storedWatch.getItemIds(type)),
+        );
+      } catch (error) {
+        this.logger.warn(
+          `Could not check that ${row.title} left Plex: ${errorText(error)}; the next run retries`,
+        );
+        continue;
+      }
+      const remaining = row.plexIds.filter((id) => live.has(id));
+      if (remaining.length === 0) {
+        await this.leavingSoon.verified(row, now);
+        continue;
+      }
+      const detail = `files remain at ${row.path}`;
+      if (
+        !(await this.leavingSoon.transition(
+          row,
+          'deleted',
+          'deleted-with-cleanup-failure',
+          {
+            note: `${row.note ?? 'Deleted'}; ${detail} (Plex still lists ${remaining.join(', ')})`,
+            verifiedAt: now,
+          },
+        ))
+      )
+        continue;
+      summary.cleanupFailed.push({ title: row.title, detail });
+      const collection = await this.collections.findOne({
+        where: { id: row.collectionId },
+      });
+      if (collection)
+        await this.record(collection, {
+          ...this.identity(row),
+          status: 'deleted-with-cleanup-failure',
+          providerId: row.providerId,
+          path: row.path,
+          at: new Date().toISOString(),
+        });
+    }
+  }
+
+  private identity(row: ReviewPending): ReviewTitleIdentity {
+    return {
+      id: row.mediaServerId,
+      title: row.title,
+      year: row.year ?? null,
+      sizeBytes: Number(row.sizeBytes),
+      arrService: row.arrService,
+      arrSettingsId: row.arrSettingsId,
+      arrId: row.arrId,
+      plexIds: [...row.plexIds],
+    };
+  }
+
   private async process(
     row: ReviewPending,
     now: Date,
     playing: Set<string> | null,
+    reads: RunReads,
     summary: ReviewJobSummary,
   ): Promise<void> {
     const due = new Date(row.deleteAt).getTime() <= now.getTime();
@@ -157,12 +305,8 @@ export class ReviewDeletionJobService {
         summary,
       );
     }
-    if (watched) {
-      if (await this.leavingSoon.release(row, 'saved', watched))
-        summary.saved.push({ title: row.title, detail: watched });
-      return;
-    }
-    if (due) await this.deleteDue(row, collection, summary);
+    if (watched) return this.end(row, 'saved', watched, summary);
+    if (due) await this.deleteDue(row, collection, reads, summary);
   }
 
   /** A due title that cannot be checked or deleted stays pending. */
@@ -175,6 +319,21 @@ export class ReviewDeletionJobService {
     if (!due) return;
     await this.leavingSoon.note(row, `Waiting: ${reason}`);
     summary.waiting.push({ title: row.title, detail: reason });
+  }
+
+  /** Ends an active row for a reason the next run cannot change. */
+  private async end(
+    row: ReviewPending,
+    to: 'saved' | 'cancelled' | 'not-deleted',
+    note: string,
+    summary: ReviewJobSummary,
+    from: 'pending' | 'deleting' = 'pending',
+  ): Promise<void> {
+    if (!(await this.leavingSoon.release(row, to, note, from))) return;
+    (to === 'saved' ? summary.saved : summary.notDeleted).push({
+      title: row.title,
+      detail: note,
+    });
   }
 
   private async playing(): Promise<Set<string>> {
@@ -225,9 +384,89 @@ export class ReviewDeletionJobService {
       : null;
   }
 
+  /**
+   * M18 during the 14 days: a Seerr request in the last year, any watchlist,
+   * or a partly watched copy saves the title. Null when none applies.
+   */
+  private async protectedReason(
+    row: ReviewPending,
+    type: 'movie' | 'show',
+    copies: MediaItem[],
+    tmdbId: number | null,
+    reads: RunReads,
+  ): Promise<string | null> {
+    const snapshot = await reads.get<StoredReviewSnapshot>(
+      `snapshot:${type}`,
+      () => this.storedWatch.getReviewSnapshot(type),
+    );
+    const partly = copies.find(
+      (copy) => snapshot.states.get(copy.id)?.inProgress,
+    );
+    if (partly) return 'Partly watched by someone';
+    const protections = await reads.get<ReviewProtections>('protections', () =>
+      this.review.reviewProtections(Date.now() - REVIEW_WINDOW_MS),
+    );
+    const hit = requestOrWatchlistHit(
+      protections,
+      type,
+      new Set(tmdbId ? [tmdbId] : []),
+      row.providerId,
+      copies,
+    );
+    if (hit === 'unverified')
+      throw new Error(
+        'watchlist state unverified: a Plex copy uses a legacy agent',
+      );
+    if (hit === 'seerr-request') return 'Requested in Seerr in the last year';
+    if (hit === 'watchlist') return 'On a watchlist';
+    return null;
+  }
+
+  /** The arr Recycling Bin must hold deletes for exactly 7 days (M21). */
+  private async recycleBin(
+    row: ReviewPending,
+    reads: RunReads,
+  ): Promise<string | null> {
+    const bin = await reads.get(
+      `recycle:${row.arrService}:${row.arrSettingsId}`,
+      async () =>
+        (row.arrService === 'radarr'
+          ? await this.servarr.getRadarrApiClient(row.arrSettingsId)
+          : await this.servarr.getSonarrApiClient(row.arrSettingsId)
+        ).getRecycleBin(),
+    );
+    if (!bin) throw new Error('arr media-management settings unread');
+    return bin.path && bin.cleanupDays === REVIEW_RECYCLE_DAYS
+      ? bin.path
+      : null;
+  }
+
+  /**
+   * Radarr's file below the movie folder should be one of the files Plex
+   * holds; a mismatch is flagged in the outcome, never refused.
+   */
+  private async fileFlag(row: ReviewPending): Promise<string | null> {
+    if (row.arrService !== 'radarr') return null;
+    try {
+      const api = await this.servarr.getRadarrApiClient(row.arrSettingsId);
+      const movie = await api.getMovieByTmdbId(row.providerId);
+      const relative = movie?.movieFile?.relativePath?.replace(/\\/g, '/');
+      if (!relative) return 'Radarr file unread; its Plex match is unchecked';
+      const files = this.storedWatch
+        .getPartFiles(row.plexIds)
+        .map((file) => file.replace(/\\/g, '/'));
+      return files.some((file) => file.endsWith(`/${relative}`))
+        ? null
+        : `Radarr file ${relative} matches no Plex file`;
+    } catch (error) {
+      return `Radarr file unread (${errorText(error)}); its Plex match is unchecked`;
+    }
+  }
+
   private async deleteDue(
     row: ReviewPending,
     collection: Collection,
+    reads: RunReads,
     summary: ReviewJobSummary,
   ): Promise<void> {
     if (!allowsReviewDeletion(collection))
@@ -243,12 +482,35 @@ export class ReviewDeletionJobService {
         mediaServerId: row.mediaServerId,
       },
     });
-    if (!membership) {
-      const note = 'Not deleted: no longer in the review collection';
-      if (await this.leavingSoon.release(row, 'not-deleted', note))
-        summary.notDeleted.push({ title: row.title, detail: note });
-      return;
+    if (!membership)
+      return this.end(
+        row,
+        'not-deleted',
+        'Not deleted: no longer in the review collection',
+        summary,
+      );
+    let shown: Set<string>;
+    try {
+      shown = await reads.get(`leaving:${row.plexCollectionId}`, () =>
+        this.leavingSoon.children(row.plexCollectionId),
+      );
+    } catch (error) {
+      return this.wait(
+        row,
+        true,
+        `Plex Leaving soon unread: ${errorText(error)}`,
+        summary,
+      );
     }
+    if (!shown.has(row.mediaServerId))
+      return this.end(
+        row,
+        'cancelled',
+        'Removed from Plex Leaving soon before its date; treated as cancelled',
+        summary,
+      );
+
+    const type = collection.type as 'movie' | 'show';
     const target: ReviewTarget = {
       kind: row.arrService,
       settingsId: row.arrSettingsId,
@@ -257,27 +519,35 @@ export class ReviewDeletionJobService {
       path: row.path,
       addedAt: row.addedAt,
     };
-    const identity: ReviewTitleIdentity = {
-      id: row.mediaServerId,
-      title: row.title,
-      year: row.year ?? null,
-      sizeBytes: Number(row.sizeBytes),
-      arrService: row.arrService,
-      arrSettingsId: row.arrSettingsId,
-      arrId: row.arrId,
-      plexIds: [...row.plexIds],
-    };
+    const identity = this.identity(row);
+    let inventory: MediaItem[];
+    let tmdbId: number | null;
+    let binPath: string | null;
     try {
+      inventory = await reads.get(`inventory:${type}`, () =>
+        this.review.inventory(collection),
+      );
       identity.plexIds = await this.review.validateTarget(
         collection,
         membership,
         target,
+        inventory,
       );
+      // The Plex item still exists here; after the delete it may not.
+      tmdbId = await this.tmdbId(row, membership);
+      const copies = inventory.filter((item) =>
+        identity.plexIds.includes(item.id),
+      );
+      const kept = await this.protectedReason(row, type, copies, tmdbId, reads);
+      if (kept) return this.end(row, 'saved', kept, summary);
+      binPath = await this.recycleBin(row, reads);
     } catch (error) {
+      if (error instanceof ReviewTargetRefused)
+        return this.end(row, error.outcome, error.message, summary);
       return this.wait(row, true, errorText(error), summary);
     }
-    // The Plex item still exists here; after the delete it may not.
-    const tmdbId = await this.tmdbId(row, membership);
+    if (!binPath) return this.wait(row, true, 'recycle bin not set', summary);
+    const flag = await this.fileFlag(row);
     if (!(await this.leavingSoon.transition(row, 'pending', 'deleting')))
       return;
 
@@ -308,6 +578,7 @@ export class ReviewDeletionJobService {
         collection,
         membership,
         target,
+        inventory,
       );
     };
     let cleanupFailed = false;
@@ -326,7 +597,15 @@ export class ReviewDeletionJobService {
     }
 
     if (!state.sent) {
-      // No arr request left: the title is intact and stays pending.
+      // No arr request left: the title is intact.
+      if (failure instanceof ReviewTargetRefused)
+        return this.end(
+          row,
+          failure.outcome,
+          failure.message,
+          summary,
+          'deleting',
+        );
       const reason = failure
         ? errorText(failure)
         : 'the collection handler refused the delete';
@@ -352,11 +631,13 @@ export class ReviewDeletionJobService {
     if (state.recorded !== status || seerr)
       await this.record(collection, audit(status, seerr));
     const arr = row.arrService === 'radarr' ? 'Radarr' : 'Sonarr';
+    const moved = `Deleted through ${arr} into its recycle bin ${binPath} (${REVIEW_RECYCLE_DAYS}-day cleanup)`;
+    const flagged = flag ? `; ${flag}` : '';
     const note =
       status === 'deleted'
-        ? `Deleted through ${arr} with files; Seerr ${seerr}`
+        ? `${moved}; Seerr ${seerr}${flagged}`
         : status === 'deleted-with-cleanup-failure'
-          ? `Deleted through ${arr} with files; cleanup failed${failure ? `: ${errorText(failure)}` : ''}; Seerr ${seerr}`
+          ? `${moved}; cleanup failed${failure ? `: ${errorText(failure)}` : ''}; Seerr ${seerr}${flagged}`
           : status === 'uncertain'
             ? `${arr} delete outcome uncertain; check ${arr} before acting`
             : `${arr} refused the delete`;
@@ -364,10 +645,12 @@ export class ReviewDeletionJobService {
       note,
       seerr: seerr ?? null,
     });
-    (status === 'deleted' || status === 'deleted-with-cleanup-failure'
-      ? summary.deleted
-      : summary.notDeleted
-    ).push({ title: row.title, detail: note });
+    const line = { title: row.title, detail: note };
+    if (status === 'deleted') summary.deleted.push(line);
+    else if (status === 'deleted-with-cleanup-failure')
+      summary.cleanupFailed.push(line);
+    else if (status === 'uncertain') summary.uncertain.push(line);
+    else summary.notDeleted.push(line);
   }
 
   private async tmdbId(
@@ -430,9 +713,11 @@ export class ReviewDeletionJobService {
 
   private async notify(summary: ReviewJobSummary): Promise<void> {
     const sections: [string, ReviewJobLine[]][] = [
-      ['Kept, someone watched', summary.saved],
-      ['Deleted (7-day recycle bin)', summary.deleted],
+      ['Kept', summary.saved],
+      ['Deleted', summary.deleted],
+      ['Deleted, cleanup failed', summary.cleanupFailed],
       ['Not deleted', summary.notDeleted],
+      ['Outcome uncertain, check by hand', summary.uncertain],
       ['Waiting', summary.waiting],
     ];
     const message = sections

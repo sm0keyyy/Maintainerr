@@ -10,7 +10,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import { MediaServerFactory } from '../api/media-server/media-server.factory';
 import { MaintainerrLogger } from '../logging/logs.service';
 import { ReviewTarget } from '../actions/review-deletion';
@@ -97,6 +97,50 @@ export class ReviewLeavingSoonService {
     });
   }
 
+  /** Rows a previous run left mid-delete, e.g. after a crash or restart. */
+  async interruptedRows(): Promise<ReviewPending[]> {
+    return this.pending.find({ where: { status: 'deleting' } });
+  }
+
+  /** Deleted rows whose removal from Plex has not been checked yet. */
+  async unverifiedDeletedRows(): Promise<ReviewPending[]> {
+    return this.pending.find({
+      where: { status: 'deleted', verifiedAt: IsNull() },
+    });
+  }
+
+  /** Marks a deleted row as checked gone from Plex. */
+  async verified(row: ReviewPending, at: Date): Promise<void> {
+    await this.pending.update(
+      { id: row.id, status: 'deleted' },
+      { verifiedAt: at },
+    );
+    row.verifiedAt = at;
+  }
+
+  /** Plex ids currently in one "Leaving soon" collection. Throws when unread. */
+  async children(plexCollectionId: string): Promise<Set<string>> {
+    const server = await this.mediaServerFactory.getService();
+    return new Set(
+      (await server.getCollectionChildren(plexCollectionId)).map(
+        (child) => child.id,
+      ),
+    );
+  }
+
+  /** Cancels every pending approval of one Plex title, e.g. on keep forever. */
+  async cancelTitle(
+    mediaServerId: string,
+    note: string,
+  ): Promise<ReviewPending[]> {
+    const cancelled: ReviewPending[] = [];
+    for (const row of await this.pending.find({
+      where: { mediaServerId, status: 'pending' },
+    }))
+      if (await this.release(row, 'cancelled', note)) cancelled.push(row);
+    return cancelled;
+  }
+
   /**
    * Finds or creates the library's "Leaving soon" collection and promotes it
    * to Library recommended, the owner's Home and every shared user's Home. A
@@ -146,7 +190,7 @@ export class ReviewLeavingSoonService {
    * Adds each title to Plex "Leaving soon" and records it as pending. All or
    * nothing: when Plex or the database refuses one title, the titles already
    * scheduled by this call are cancelled again, so no title is ever deleted
-   * without having been shown.
+   * without having been shown. A cancel that fails is named in the error.
    */
   async schedule(
     collection: Collection,
@@ -197,11 +241,27 @@ export class ReviewLeavingSoonService {
         }
       }
     } catch (error) {
-      for (const row of saved)
-        await this.release(
-          row,
-          'cancelled',
-          'Approval failed: another title in the same approval was refused',
+      const leftOver: string[] = [];
+      for (const row of saved) {
+        try {
+          if (
+            !(await this.release(
+              row,
+              'cancelled',
+              'Approval failed: another title in the same approval was refused',
+            ))
+          )
+            leftOver.push(row.title);
+        } catch (rollback) {
+          this.logger.error(
+            `Could not roll back the approval of ${row.title} (row ${row.id}): ${rollback instanceof Error ? rollback.message : String(rollback)}`,
+          );
+          leftOver.push(row.title);
+        }
+      }
+      if (leftOver.length)
+        throw new Error(
+          `${error instanceof Error ? error.message : String(error)}; still pending after a failed rollback: ${leftOver.join(', ')}. Cancel them on the Leaving soon list.`,
         );
       throw error;
     }
@@ -217,7 +277,7 @@ export class ReviewLeavingSoonService {
     row: ReviewPending,
     from: ReviewPendingStatus,
     to: ReviewPendingStatus,
-    changes: Partial<Pick<ReviewPending, 'note' | 'seerr'>> = {},
+    changes: Partial<Pick<ReviewPending, 'note' | 'seerr' | 'verifiedAt'>> = {},
   ): Promise<boolean> {
     const result = await this.pending.update(
       { id: row.id, status: from },
@@ -238,13 +298,14 @@ export class ReviewLeavingSoonService {
     row.note = note;
   }
 
-  /** Ends a pending row and takes the title out of Plex "Leaving soon". */
+  /** Ends an active row and takes the title out of Plex "Leaving soon". */
   async release(
     row: ReviewPending,
     to: 'saved' | 'cancelled' | 'not-deleted',
     note: string,
+    from: 'pending' | 'deleting' = 'pending',
   ): Promise<boolean> {
-    if (!(await this.transition(row, 'pending', to, { note }))) return false;
+    if (!(await this.transition(row, from, to, { note }))) return false;
     await this.removeFromPlex(row.plexCollectionId, row.mediaServerId);
     await this.refreshSummary(row.libraryId, row.plexCollectionId);
     return true;

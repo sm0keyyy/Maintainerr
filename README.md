@@ -337,28 +337,43 @@ collection summary names the next removal date. If Plex refuses the collection,
 its promotion or any title, nothing in that approval is scheduled.
 
 A job runs daily at 04:30 (server timezone) under the rules and collections
-lock; it skips the day while a rule or collection run holds the lock.
+lock; it skips the day while a rule or collection run holds the lock. Each run
+reads the Plex inventory, stored watch state, M18 protections and each arr's
+recycle-bin settings at most once.
 
+- First it settles earlier runs. A title still marked deleting (the job stopped
+  mid-delete) becomes `uncertain` and is named in the push. A deleted title
+  whose Plex ids Plex still lists becomes `deleted-with-cleanup-failure`, with
+  "files remain at <path>" in the push.
 - A pending title is saved, and leaves Leaving soon, when any Plex account
   finished, partly watched or played it since its approval: per-user stored
   watch state and view history from the read-only Plex database, Plex session
   history, and current sessions.
-- A title still pending at its date is checked again (identity, exclusions, a
-  365-day watch and age window, current sessions) and deleted through Radarr
+- A title still pending at its date must still be in the Plex Leaving soon
+  collection; one removed there by hand is treated as cancelled. The M18
+  protections apply again: a Seerr request in the last year, any watchlist or
+  a partly watched copy saves it. Then identity, exclusions, the 365-day watch
+  and age window and current sessions are checked. A title kept forever,
+  watched or playing is saved; a changed arr target or Plex mapping ends it as
+  `not-deleted`. An unreadable check leaves it pending until the next day.
+- Radarr or Sonarr must have a Recycling Bin folder with a 7-day cleanup
+  (below). Otherwise the title stays pending with "Waiting: recycle bin not
+  set" and nothing is deleted.
+- The title is then deleted through Radarr
   (`DELETE /movie/{id}?deleteFiles=true&addImportExclusion=false`) or Sonarr
   (`DELETE /series/{id}?deleteFiles=true&addImportListExclusion=false`). The
   title leaves Radarr/Sonarr, so they never grab it on their own; there is no
   import-list exclusion. Its Seerr media entry and requests are then cleared
   (`DELETE /api/v1/media/{id}`) so it can be re-requested, and Plex rescans the
-  folder.
+  folder. A Radarr file (`movieFile.relativePath`) that matches no Plex file
+  is flagged in the outcome, not refused.
 - Each delete is audited in the collection log and the application log with
   title, Plex ids, arr id, TMDB/TVDB id, path, bytes, time, arr status and the
   Seerr outcome.
-- A due title whose watch state, sessions or final check cannot be read stays
-  pending and is retried the next day. An uncertain arr answer is final and is
-  never retried automatically.
+- An uncertain arr answer is final and is never retried automatically.
 - Members of a review collection without a pending approval are never deleted;
-  scheduled collection workers still skip review collections.
+  scheduled collection workers still skip review collections. Keep forever
+  cancels a pending approval of that title.
 
 The 7-day hold comes from the Radarr and Sonarr Recycling Bin. Set it before the
 first approval, in each app under Settings > Media Management > File Management:
@@ -369,12 +384,19 @@ first approval, in each app under Settings > Media Management > File Management:
   a delete is a rename on the same filesystem rather than a copy.
 - Recycling Bin Cleanup: `7` days.
 
-With an empty Recycling Bin path, Radarr and Sonarr delete files permanently.
-Plex should have **Empty trash automatically after every scan** on so the
+The job reads both settings before every delete and refuses to delete without
+them. Plex should have **Empty trash automatically after every scan** on so the
 rescanned title leaves Plex and Seerr does not see it as available again.
 
 Select notification type `4096` (Leaving soon) on the ntfy agent for one daily
-summary of titles saved by a watch, deleted, not deleted, or waiting.
+summary of titles kept, deleted (with the recycle-bin folder), deleted with a
+cleanup failure, not deleted, uncertain, or waiting.
+
+The review list and the job read Seerr requests and watchlists. Without Seerr
+configured the list fails, unless `REVIEW_WITHOUT_SEERR=true` says the server
+has no Seerr. A Plex user whose watchlist cannot be read by plex.tv is logged
+by name. A title with a legacy-agent Plex copy cannot be matched to a Plex
+watchlist and is listed as unverified.
 
 Review requires `PLEX_DATABASE_PATH` to point to the Plex library database.
 Mount its database directory read-only, including its WAL/SHM files, so the
