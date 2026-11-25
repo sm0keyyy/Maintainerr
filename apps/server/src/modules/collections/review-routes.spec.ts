@@ -59,6 +59,7 @@ describe('Review routes leave the stock API unchanged', () => {
     const review = [
       'GET /:id/review',
       'POST /:id/review/approve',
+      'POST /:id/review/keep',
       'POST /:id/review/notify',
       'PUT /:id/review',
     ];
